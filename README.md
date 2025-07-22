@@ -1,2 +1,2 @@
-# danlovesto.run
-Personal run tracker and dashboard
+# danlovesto.run 🏃
+Personal run tracker and dashboard integrated with Strava
