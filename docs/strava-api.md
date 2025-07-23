@@ -138,8 +138,6 @@ This endpoint fetches the athlete profile details for the user curently logged i
     source ./.env
     set +o allexport
 
-    echo "ACCESS_TOKEN=$ACCESS_TOKEN"
-
     curl -X GET "https://www.strava.com/api/v3/athlete" \
       -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
@@ -173,10 +171,19 @@ Running a `GET /athlete/activities` fetches a list of the current users activiti
     source ./.env
     set +o allexport
 
+    query=""
+    [ -n "$before" ] && query+="&before=$before"
+    [ -n "$after" ] && query+="&after=$after"
+    [ -n "$page" ] && query+="&page=$page"
+    [ -n "$per_page" ] && query+="&per_page=$per_page"
 
-    echo "ACCESS_TOKEN=$ACCESS_TOKEN"
+    if [ -n "$query" ]; then
+      query="?${query#&}"
+    fi
 
-    curl -X GET "https://www.strava.com/api/v3/athlete/activities" \
+    url="https://www.strava.com/api/v3/athlete/activities$query"
+
+    curl -X GET "$url" \
       -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
