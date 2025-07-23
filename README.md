@@ -1,5 +1,5 @@
 <div align="center">
-    <img src="icon.png" alt="danlovesto.run logo" width="300" />
+    <img src="icon.png" alt="danlovesto.run logo" width="200" style="border-radius: 15px;" />
 </div>
 
 # danlovesto.run 🏃
