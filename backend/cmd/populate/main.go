@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"encoding/json"
+
+	"github.com/dan-nicholls/danlovesto.run/backend/internal/model"
 )
 
 func main() {
@@ -23,5 +26,14 @@ func main() {
 	}
 
 	fmt.Printf("✅ Read file: %s (%d bytes)\n", *filePath, len(data))
-	// TODO - Complete parsing here
+	
+	// Parse JSON data
+	var jsonData []model.Activity
+
+	if err := json.Unmarshal(data, &jsonData); err != nil {
+		panic(err)
+	}
+	fmt.Printf("%d activities parsed\n", len(jsonData))  
+
+	// TODO - Store in DB
 }
