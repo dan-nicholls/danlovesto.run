@@ -4,3 +4,8 @@
 
 # danlovesto.run 🏃
 Personal run tracker and dashboard integrated with Strava
+
+## References
+
+ - [Strava API Documentation](https://developers.strava.com/docs/reference/)
+ - [Mask](https://github.com/jacobdeichert/mask) - A CLI task runner via `.md`
