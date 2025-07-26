@@ -23,3 +23,12 @@ func (r *RunStore) SaveActivity(a *model.Activity) error {
 	log.Printf("Activity with ID %v was stored", id)
 	return nil
 }
+
+func (r *RunStore) GetAllActivities() ([]*model.Activity, error) {
+	activities, err := r.store.ListActivities()
+	if err != nil {
+		return nil, err
+	}
+
+	return activities, nil
+}

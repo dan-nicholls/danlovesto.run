@@ -37,7 +37,7 @@ func main() {
 	if err := json.Unmarshal(data, &activities); err != nil {
 		panic(err)
 	}
-	fmt.Printf("%d activities parsed\n", len(activities))  
+	fmt.Printf("%d activities parsed\n", len(activities))
 
 	// Load Config & DB
 	c := cfg.Load("config.json")
@@ -50,9 +50,21 @@ func main() {
 
 	// Store Activities
 	for _, a := range activities {
-		fmt.Printf("Storing %d\n", a.ID)
-		//STORE HERE
-		runStore.SaveActivity(&a)
+		fmt.Printf("Saving %d\n", a.ID)
+		err := runStore.SaveActivity(&a)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+		}
 	}
 
+	log.Println("Fetching all Activities")
+	var activityArr []*model.Activity
+	activityArr, err = runStore.GetAllActivities()
+	if err != nil {
+		log.Fatalf("Failed to fetch activities: %v", err)
+	}
+	for _, a := range activityArr {
+		b, _ := json.MarshalIndent(a, "", "  ")
+		fmt.Println(string(b))
+	}
 }

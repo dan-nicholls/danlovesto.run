@@ -2,7 +2,10 @@ package db
 
 import (
 	"database/sql"
+	"encoding/json"
+	"log"
 	"fmt"
+	"time"
 
 	"github.com/dan-nicholls/danlovesto.run/backend/internal/model"
 	_ "modernc.org/sqlite"
@@ -29,18 +32,123 @@ func (s *SQLStore) Close() error {
 }
 
 func (s *SQLStore) GetActivity(id int64) (*model.Activity, error) {
-	// TODO - Add get activity logic
+	//TODO - Implement Get Activity by ID
 	return nil, nil
 }
 
 func (s *SQLStore) ListActivities() ([]*model.Activity, error) {
-	// TODO - Add get all activity logic
-	return nil, nil
+	var startDateStr, startDateLocalStr string
+	query := `
+		SELECT 
+			id, name, resource_state,
+			athlete_id, athlete_resource_state,
+			distance, moving_time, elapsed_time, total_elevation_gain, type,
+			start_date, start_date_local, timezone, utc_offset,
+			map_id, map_summary_polyline, map_resource_state,
+			gear_id,
+			start_latlng, end_latlng,
+			average_speed, max_speed,
+			elev_high, elev_low,
+			raw
+		FROM activities
+		ORDER BY start_date DESC;
+	`
+	
+	rows, err := s.conn.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var activities []*model.Activity
+
+	for rows.Next() {
+		var a model.Activity
+		var startLatLng, endLatLng string
+
+		err := rows.Scan(
+			&a.ID, &a.Name, &a.ResourceState,
+			&a.Athlete.ID, &a.Athlete.ResourceState,
+			&a.Distance, &a.MovingTime, &a.ElapsedTime, &a.TotalElevationGain, &a.Type,
+			&startDateStr, &startDateLocalStr, &a.Timezone, &a.UtcOffset,
+			&a.Map.ID, &a.Map.SummaryPolyline, &a.Map.ResourceState,
+			&a.GearID,
+			&startLatLng, &endLatLng,
+			&a.AverageSpeed, &a.MaxSpeed,
+			&a.ElevHigh, &a.ElevLow,
+			&a.RawJSON,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		_ = json.Unmarshal([]byte(startLatLng ), &a.StartLatLng)
+		_ = json.Unmarshal([]byte(endLatLng), &a.EndLatLng)
+
+		a.StartDate = mustParseTime(startDateStr)
+		a.StartDateLocal = mustParseTime(startDateLocalStr)
+
+		activities = append(activities, &a)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return activities, nil
 }
 
 func (s *SQLStore) CreateActivity(a *model.Activity) (int64, error) {
 	// TODO - Add get activity logic
-	return 0, nil
+	startLatLng, _ := json.Marshal(a.StartLatLng)
+	endLatLng, _ := json.Marshal(a.EndLatLng)
+	raw, _ := json.Marshal(a)
+
+    const query = `
+		INSERT INTO activities (
+			id, name, resource_state,
+			athlete_id, athlete_resource_state,
+			distance, moving_time, elapsed_time, total_elevation_gain, type,
+			start_date, start_date_local, timezone, utc_offset,
+			map_id, map_summary_polyline, map_resource_state,
+			gear_id,
+			start_latlng, end_latlng,
+			average_speed, max_speed,
+			elev_high, elev_low,
+			raw
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+    _, err := s.conn.Exec(query,
+		a.ID,
+		a.Name,
+		a.ResourceState,
+		a.Athlete.ID,
+		a.Athlete.ResourceState,
+		a.Distance, a.MovingTime, a.ElapsedTime, a.TotalElevationGain, a.Type,
+		a.StartDate, a.StartDateLocal, a.Timezone, a.UtcOffset,
+		a.Map.ID, a.Map.SummaryPolyline, a.Map.ResourceState,
+		a.GearID,
+		startLatLng, endLatLng,
+		a.AverageSpeed, a.MaxSpeed,
+		a.ElevHigh, a.ElevLow,
+		raw,
+    )
+
+	if err != nil {
+		return 0, err 
+	}
+    return a.ID, nil
+}
+
+func mustParseTime(s string) time.Time {
+	layout := "2006-01-02 15:04:05 -0700 MST"
+	t, err := time.Parse(layout, s)
+	if err != nil {
+		log.Printf("Failed to parse time %q: %v", s, err)
+		return time.Time{}
+	}
+	return t
 }
 
 func (s *SQLStore) EnsureSchemas() error {
@@ -57,35 +165,16 @@ func (s *SQLStore) EnsureSchemas() error {
 			elapsed_time INTEGER,
 			total_elevation_gain REAL,
 			type TEXT,
-			sport_type TEXT,
-			workout_type INTEGER,
 
 			start_date TEXT,
 			start_date_local TEXT,
 			timezone TEXT,
 			utc_offset REAL,
 
-			location_city TEXT,
-			location_state TEXT,
-			location_country TEXT,
-
-			achievement_count INTEGER,
-			kudos_count INTEGER,
-			comment_count INTEGER,
-			athlete_count INTEGER,
-			photo_count INTEGER,
-			total_photo_count INTEGER,
-
 			map_id TEXT,
 			map_summary_polyline TEXT,
 			map_resource_state INTEGER,
 
-			trainer BOOLEAN,
-			commute BOOLEAN,
-			manual BOOLEAN,
-			private BOOLEAN,
-			visibility TEXT,
-			flagged BOOLEAN,
 			gear_id TEXT,
 
 			start_latlng TEXT,
@@ -93,26 +182,11 @@ func (s *SQLStore) EnsureSchemas() error {
 
 			average_speed REAL,
 			max_speed REAL,
-			average_cadence REAL,
-			average_watts REAL,
-			max_watts INTEGER,
-			weighted_average_watts INTEGER,
-			device_watts BOOLEAN,
-			kilojoules REAL,
-
-			has_heartrate BOOLEAN,
-			heartrate_opt_out BOOLEAN,
-			display_hide_heartrate_option BOOLEAN,
 
 			elev_high REAL,
 			elev_low REAL,
-			upload_id INTEGER,
-			upload_id_str TEXT,
-			external_id TEXT,
 
-			from_accepted_tag BOOLEAN,
-			pr_count INTEGER,
-			has_kudoed BOOLEAN
+			raw JSON
 		);
 	`
 	_, err := s.conn.Exec(stmt)
