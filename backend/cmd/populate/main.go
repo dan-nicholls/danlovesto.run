@@ -26,7 +26,7 @@ func main() {
 	// Read Input File
 	data, err := os.ReadFile(*filePath)
 	if err != nil {
-		log.Fatal("Error parsing file: %v", err)
+		log.Fatalf("Error parsing file: %v", err)
 	}
 
 	fmt.Printf("✅ Read file: %s (%d bytes)\n", *filePath, len(data))
@@ -46,25 +46,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	runStore := db.NewRunStore(d)
+	activityStore := db.NewActivityStore(d)
 
 	// Store Activities
 	for _, a := range activities {
 		fmt.Printf("Saving %d\n", a.ID)
-		err := runStore.SaveActivity(&a)
+		err := activityStore.SaveActivity(&a)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 		}
-	}
-
-	log.Println("Fetching all Activities")
-	var activityArr []*model.Activity
-	activityArr, err = runStore.GetAllActivities()
-	if err != nil {
-		log.Fatalf("Failed to fetch activities: %v", err)
-	}
-	for _, a := range activityArr {
-		b, _ := json.MarshalIndent(a, "", "  ")
-		fmt.Println(string(b))
 	}
 }

@@ -10,8 +10,8 @@ type Database interface {
 	Close() error
 
 	// Activity methods
-	GetActivity(id int64) (*model.Activity, error)
-	ListActivities() ([]*model.Activity, error)
+	GetActivityByID(id int64) (*model.Activity, error)
+	GetAllActivities() ([]*model.Activity, error)
 	CreateActivity(a *model.Activity) (int64, error)
 }
 

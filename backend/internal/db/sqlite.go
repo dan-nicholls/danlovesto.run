@@ -15,6 +15,8 @@ type SQLStore struct {
 	conn *sql.DB
 }
 
+// Connections
+
 func (s *SQLStore) Open(dsn string) error {
 	conn, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -31,12 +33,108 @@ func (s *SQLStore) Close() error {
 	return s.conn.Close()
 }
 
-func (s *SQLStore) GetActivity(id int64) (*model.Activity, error) {
-	//TODO - Implement Get Activity by ID
+func (s *SQLStore) EnsureSchemas() error {
+	const stmt = `
+		CREATE TABLE IF NOT EXISTS activities (
+			id INTEGER PRIMARY KEY,
+			name TEXT,
+			resource_state INTEGER,
+			athlete_id INTEGER,
+			athlete_resource_state INTEGER,
+
+			distance REAL,
+			moving_time INTEGER,
+			elapsed_time INTEGER,
+			total_elevation_gain REAL,
+			type TEXT,
+
+			start_date TEXT,
+			start_date_local TEXT,
+			timezone TEXT,
+			utc_offset REAL,
+
+			map_id TEXT,
+			map_summary_polyline TEXT,
+			map_resource_state INTEGER,
+
+			gear_id TEXT,
+
+			start_latlng TEXT,
+			end_latlng TEXT,
+
+			average_speed REAL,
+			max_speed REAL,
+
+			elev_high REAL,
+			elev_low REAL,
+
+			raw JSON
+		);
+	`
+	_, err := s.conn.Exec(stmt)
+	return err
+}
+
+// Operations
+
+func (s *SQLStore) CreateActivity(a *model.Activity) (int64, error) {
+	startLatLng, _ := json.Marshal(a.StartLatLng)
+	endLatLng, _ := json.Marshal(a.EndLatLng)
+	raw, _ := json.Marshal(a)
+
+    const query = `
+		INSERT INTO activities (
+			id, name, resource_state,
+			athlete_id, athlete_resource_state,
+			distance, moving_time, elapsed_time, total_elevation_gain, type,
+			start_date, start_date_local, timezone, utc_offset,
+			map_id, map_summary_polyline, map_resource_state,
+			gear_id,
+			start_latlng, end_latlng,
+			average_speed, max_speed,
+			elev_high, elev_low,
+			raw
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+    _, err := s.conn.Exec(query,
+		a.ID,
+		a.Name,
+		a.ResourceState,
+		a.Athlete.ID,
+		a.Athlete.ResourceState,
+		a.Distance, a.MovingTime, a.ElapsedTime, a.TotalElevationGain, a.Type,
+		a.StartDate, a.StartDateLocal, a.Timezone, a.UtcOffset,
+		a.Map.ID, a.Map.SummaryPolyline, a.Map.ResourceState,
+		a.GearID,
+		startLatLng, endLatLng,
+		a.AverageSpeed, a.MaxSpeed,
+		a.ElevHigh, a.ElevLow,
+		raw,
+    )
+
+	if err != nil {
+		return 0, err 
+	}
+    return a.ID, nil
+}
+
+func (s *SQLStore) GetActivityByID(id int64) (*model.Activity, error) {
+	query := `
+		SELECT 1 FROM activities WHERE id = ?
+	`
+
+	rows, err := s.conn.Query(query)
+	if err != nil {
+		return nil, err 	
+	}
+	defer rows.Close()
+
+
 	return nil, nil
 }
 
-func (s *SQLStore) ListActivities() ([]*model.Activity, error) {
+func (s *SQLStore) GetAllActivities() ([]*model.Activity, error) {
 	var startDateStr, startDateLocalStr string
 	query := `
 		SELECT 
@@ -98,48 +196,7 @@ func (s *SQLStore) ListActivities() ([]*model.Activity, error) {
 	return activities, nil
 }
 
-func (s *SQLStore) CreateActivity(a *model.Activity) (int64, error) {
-	// TODO - Add get activity logic
-	startLatLng, _ := json.Marshal(a.StartLatLng)
-	endLatLng, _ := json.Marshal(a.EndLatLng)
-	raw, _ := json.Marshal(a)
-
-    const query = `
-		INSERT INTO activities (
-			id, name, resource_state,
-			athlete_id, athlete_resource_state,
-			distance, moving_time, elapsed_time, total_elevation_gain, type,
-			start_date, start_date_local, timezone, utc_offset,
-			map_id, map_summary_polyline, map_resource_state,
-			gear_id,
-			start_latlng, end_latlng,
-			average_speed, max_speed,
-			elev_high, elev_low,
-			raw
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`
-
-    _, err := s.conn.Exec(query,
-		a.ID,
-		a.Name,
-		a.ResourceState,
-		a.Athlete.ID,
-		a.Athlete.ResourceState,
-		a.Distance, a.MovingTime, a.ElapsedTime, a.TotalElevationGain, a.Type,
-		a.StartDate, a.StartDateLocal, a.Timezone, a.UtcOffset,
-		a.Map.ID, a.Map.SummaryPolyline, a.Map.ResourceState,
-		a.GearID,
-		startLatLng, endLatLng,
-		a.AverageSpeed, a.MaxSpeed,
-		a.ElevHigh, a.ElevLow,
-		raw,
-    )
-
-	if err != nil {
-		return 0, err 
-	}
-    return a.ID, nil
-}
+// Util
 
 func mustParseTime(s string) time.Time {
 	layout := "2006-01-02 15:04:05 -0700 MST"
@@ -151,44 +208,13 @@ func mustParseTime(s string) time.Time {
 	return t
 }
 
-func (s *SQLStore) EnsureSchemas() error {
-	const stmt = `
-		CREATE TABLE IF NOT EXISTS activities (
-			id INTEGER PRIMARY KEY,
-			name TEXT,
-			resource_state INTEGER,
-			athlete_id INTEGER,
-			athlete_resource_state INTEGER,
-
-			distance REAL,
-			moving_time INTEGER,
-			elapsed_time INTEGER,
-			total_elevation_gain REAL,
-			type TEXT,
-
-			start_date TEXT,
-			start_date_local TEXT,
-			timezone TEXT,
-			utc_offset REAL,
-
-			map_id TEXT,
-			map_summary_polyline TEXT,
-			map_resource_state INTEGER,
-
-			gear_id TEXT,
-
-			start_latlng TEXT,
-			end_latlng TEXT,
-
-			average_speed REAL,
-			max_speed REAL,
-
-			elev_high REAL,
-			elev_low REAL,
-
-			raw JSON
-		);
-	`
-	_, err := s.conn.Exec(stmt)
-	return err
+func (s *SQLStore)ExistsActivityByID(id int64) (bool, error) {
+	var a *model.Activity
+	query := "SELECT 1 FROM activities where id = ? LIMIT 1"
+	err := s.conn.QueryRow(query, id).Scan(&a)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	return err == nil, err 
 }
+

@@ -6,15 +6,15 @@ import (
 	"github.com/dan-nicholls/danlovesto.run/backend/internal/model"
 )
 
-type RunStore struct {
+type ActivityStore struct {
 	store Database
 }
 
-func NewRunStore(db Database) *RunStore {
-	return &RunStore{store: db}
+func NewActivityStore(db Database) *ActivityStore {
+	return &ActivityStore{store: db}
 }
 
-func (r *RunStore) SaveActivity(a *model.Activity) error {
+func (r *ActivityStore) SaveActivity(a *model.Activity) error {
 	id, err := r.store.CreateActivity(a)
 	if err != nil {
 		return err
@@ -24,8 +24,8 @@ func (r *RunStore) SaveActivity(a *model.Activity) error {
 	return nil
 }
 
-func (r *RunStore) GetAllActivities() ([]*model.Activity, error) {
-	activities, err := r.store.ListActivities()
+func (r *ActivityStore) GetAllActivities() ([]*model.Activity, error) {
+	activities, err := r.store.GetAllActivities()
 	if err != nil {
 		return nil, err
 	}
