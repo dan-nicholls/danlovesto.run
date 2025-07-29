@@ -7,6 +7,7 @@ import (
 )
 
 type Config struct {
+	Version string `json:"version"`
 	Port	int 	`json:"port"`
 	DatabaseURL string	`json:"database_url"`
 }
