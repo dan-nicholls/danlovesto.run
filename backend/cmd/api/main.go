@@ -65,18 +65,47 @@ func handleInfo(logger log.Logger, cfg *cfg.Config, start time.Time) http.Handle
 	})
 }
 
+func handleStatSummary(logger log.Logger, as *db.ActivityStore) http.Handler {
+	type response struct {
+		TotalRuns int `json:"total_runs"`
+		TotalDistance float64 `json:"total_distance"`
+		TotalHours int `json:"total_hours"`
+		TotalClimbed int `json:"total_climbed"`
+	}
+
+	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+		logger.Infof("%s - %s - Handling Stat Summary Endpoint", r.Method, r.URL.Path)
+
+		totalRuns, _ := as.GetTotalRuns()
+		totalDistance , _ := as.GetTotalDistance()
+		totalHours, _ := as.GetTotalHours()
+		totalClimbed, _ := as.GetTotalClimbed()
+		res := response{
+			TotalRuns: totalRuns,
+			TotalDistance: totalDistance,
+			TotalHours: totalHours,
+			TotalClimbed: totalClimbed,
+		}
+
+		if err := encode(w, r, http.StatusOK, res); err != nil {
+			logger.Errorf("Failed to encode stats summary response: %w", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+		}
+	})
+}
+
 func handleUnderConstruction() http.Handler {
 	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "under construction", http.StatusServiceUnavailable)
 	})
 }
 
-func addRoutes(mux *http.ServeMux, log log.Logger, cfg *cfg.Config, startTime time.Time) {
+func addRoutes(mux *http.ServeMux, log log.Logger, cfg *cfg.Config, startTime time.Time, as *db.ActivityStore) {
 	mux.Handle("/api/v1/health", handleHealthCheck(log)) 
 	mux.Handle("/api/v1/info", handleInfo(log, cfg, startTime)) 
 	mux.Handle("/api/v1/runs", handleUnderConstruction()) 
 	mux.Handle("/api/v1/runs/latest", handleUnderConstruction()) 
-	mux.Handle("/api/v1/stats/summary", handleUnderConstruction()) 
+	mux.Handle("/api/v1/stats/summary", handleStatSummary(log, as)) 
 }
 
 func NewRouter(db db.Database, cfg cfg.Config) *http.ServeMux {
@@ -90,14 +119,16 @@ func main() {
 	fmt.Println("Starting Run Stats API")
 
 	c := cfg.Load("config.json")
-	db, err := db.New(c.DatabaseURL)
+	database, err := db.New(c.DatabaseURL)
 	if err != nil {
 		stdlog.Fatalf("%w", err)
 	}
 
-	router := NewRouter(db, c)
+	as := db.NewActivityStore(database)
+
+	router := NewRouter(database, c)
 	start := time.Now()
-	addRoutes(router, logger, &c, start)
+	addRoutes(router, logger, &c, start, as)
 
 	logger.Infof("Listening on %d...", c.Port)
 	http.ListenAndServe(":"+strconv.Itoa(c.Port), router)
