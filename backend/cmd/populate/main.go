@@ -41,7 +41,6 @@ func main() {
 
 	// Load Config & DB
 	c := cfg.Load("config.json")
-	fmt.Println(c)
 	d, err := db.New(c.DatabaseURL)
 	if err != nil {
 		log.Fatal(err)
