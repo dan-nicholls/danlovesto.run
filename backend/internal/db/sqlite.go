@@ -34,45 +34,14 @@ func (s *SQLStore) Close() error {
 }
 
 func (s *SQLStore) EnsureSchemas() error {
-	const stmt = `
-		CREATE TABLE IF NOT EXISTS activities (
-			id INTEGER PRIMARY KEY,
-			name TEXT,
-			resource_state INTEGER,
-			athlete_id INTEGER,
-			athlete_resource_state INTEGER,
+	if _, err := s.conn.Exec(activitiesTable); err != nil {
+		return err
+	}
+	if _, err := s.conn.Exec(personalBestsTable); err != nil {
+		return err
+	}
 
-			distance REAL,
-			moving_time INTEGER,
-			elapsed_time INTEGER,
-			total_elevation_gain REAL,
-			type TEXT,
-
-			start_date TEXT,
-			start_date_local TEXT,
-			timezone TEXT,
-			utc_offset REAL,
-
-			map_id TEXT,
-			map_summary_polyline TEXT,
-			map_resource_state INTEGER,
-
-			gear_id TEXT,
-
-			start_latlng TEXT,
-			end_latlng TEXT,
-
-			average_speed REAL,
-			max_speed REAL,
-
-			elev_high REAL,
-			elev_low REAL,
-
-			raw JSON
-		);
-	`
-	_, err := s.conn.Exec(stmt)
-	return err
+	return nil
 }
 
 // Operations
