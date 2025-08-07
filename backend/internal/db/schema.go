@@ -44,4 +44,9 @@ const (
       activity_id  INTEGER     REFERENCES activities(id),
       updated_at   DATETIME    DEFAULT CURRENT_TIMESTAMP
   	);`
+
+	seedPBs = `
+	INSERT OR IGNORE INTO personal_bests(distance) VALUES
+	('1km'), ('5km'), ('10km'), ('Half-Marathon'), ('Marathon');
+	`
 )
