@@ -187,4 +187,15 @@ Running a `GET /athlete/activities` fetches a list of the current users activiti
       -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
+## getActivityById (activityId)
+> Get a DetailedActivity for a given activity id.
+
+```sh
+    set -o allexport
+    source ./.env
+    set +o allexport
+
+    curl -X GET "https://www.strava.com/api/v3/athlete/$id" \
+      -H "Authorization: Bearer $ACCESS_TOKEN"
+```
 
