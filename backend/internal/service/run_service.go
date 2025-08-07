@@ -36,7 +36,6 @@ func (r *RunService) ListActivities() ([]*model.Activity, error) {
 	return activities, nil
 }
 
-// TODO - Refactor this to support activity and pb repos
 func (s *RunService) ListDetailedPBs() ([]*model.DetailedPersonalBest, error) {
 	pbs, err := s.pbs.GetAllPBs()
 	if err != nil {
@@ -45,7 +44,10 @@ func (s *RunService) ListDetailedPBs() ([]*model.DetailedPersonalBest, error) {
 
 	var detailedPBs []*model.DetailedPersonalBest
 	for _, pb := range pbs {
-		a, err := s.activities.GetActivityByID(pb.ActivityID)
+		if !pb.ActivityID.Valid {
+			continue
+		}
+		a, err := s.activities.GetActivityByID(pb.ActivityID.Int64)
 		if err != nil {
 			continue
 		}

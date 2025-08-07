@@ -27,3 +27,24 @@ This endpoint will fetch the following details:
 ```sh
     curl -X POST "http://localhost:3000/api/v1/stats/summary"
 ```
+
+## getLongestRuns
+> Get the list of the longest completed runs
+
+```sh
+    curl -X POST "http://localhost:3000/api/v1/stats/longest"
+```
+
+## getPersonalBests
+> Get the list of the PBs for set distances
+
+This endpoint fetches the personal best times for the following distances:
+- 1km
+- 5km
+- 10km
+- Half-Marathon
+- Marathon
+
+```sh
+    curl -X POST "http://localhost:3000/api/v1/runs/personal-bests"
+```

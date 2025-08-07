@@ -2,11 +2,12 @@ package model
 
 import (
 	"time"
+	"database/sql"
 )
 
 type PersonalBest struct {
 	Distance 	string
-	ActivityID 	int64
+	ActivityID 	sql.NullInt64	
 	UpdatedAt 	time.Time
 }
 
