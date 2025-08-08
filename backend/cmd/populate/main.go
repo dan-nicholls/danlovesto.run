@@ -120,6 +120,7 @@ var pbCmd = &cobra.Command{
             }
             ps := db.NewPBStore(d)
             for _, e := range entries {
+				log.Printf("Attempting to store %s - %v", e.Distance, e.ActivityID)
                 nid := sql.NullInt64{Int64: e.ActivityID, Valid: true}
                 if err := ps.SetPB(e.Distance, nid.Int64); err != nil {
                     log.Printf("warning: failed to set PB %s: %v", e.Distance, err)
