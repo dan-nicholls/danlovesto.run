@@ -43,7 +43,6 @@ func (s *PBStore) GetAllPBs() ([]*model.PersonalBest, error) {
 	for rows.Next() {
 		var pb model.PersonalBest
 		if err := rows.Scan(&pb.Distance, &pb.ActivityID, &pb.UpdatedAt); err != nil {
-			// TODO - Handle null values for actiivty ID and time
 			return nil, fmt.Errorf("scan pb: %w", err)
 		}
 		list = append(list, &pb)

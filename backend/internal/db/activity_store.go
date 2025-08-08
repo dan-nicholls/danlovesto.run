@@ -67,7 +67,19 @@ func (s *ActivityStore) CreateActivity(a *model.Activity) (int64, error) {
 }
 
 func (s *ActivityStore) GetActivityByID(id int64) (*model.Activity, error) {
-	query := `SELECT 1 FROM activities WHERE id = ?`
+	query := `
+		SELECT 
+			id, name, resource_state,
+			athlete_id, athlete_resource_state,
+			distance, moving_time, elapsed_time, total_elevation_gain, type,
+			start_date, start_date_local, timezone, utc_offset,
+			map_id, map_summary_polyline, map_resource_state,
+			gear_id,
+			start_latlng, end_latlng,
+			average_speed, max_speed,
+			elev_high, elev_low,
+			raw
+		FROM activities WHERE id = ?`
 	row := s.DB.Conn.QueryRow(query, id)
 	var m model.Activity
 	var startJSON, endJSON []byte

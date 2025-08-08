@@ -116,19 +116,14 @@ func handlePersonalBests(logger log.Logger, rs *service.RunService) http.Handler
 			logger.Infof("%v", pb) 
 			switch pb.Distance {
 			case "1km":
-				logger.Infof("1km pb found: %v", pb.Activity)
 				res.OneKm = pb.Activity
 			case "5km":
-				logger.Infof("5km pb found: %v", pb.Activity)
 				res.FiveKm = pb.Activity
 			case "10km":
-				logger.Infof("10km pb found: %v", pb.Activity)
 				res.TenKm = pb.Activity
 			case "Half-Marathon":
-				logger.Infof("half pb found: %v", pb.Activity)
 				res.HalfMarathon = pb.Activity
 			case "Mararthon":
-				logger.Infof("marathon pb found: %v", pb.Activity)
 				res.Marathon = pb.Activity
 			default:
 				logger.Errorf("Invalid PB Found: %s", pb.Distance)
