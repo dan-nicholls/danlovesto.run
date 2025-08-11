@@ -49,7 +49,7 @@ func (s *RunService) ListDetailedPBs() ([]*model.DetailedPersonalBest, error) {
 		}
 		a, err := s.activities.GetActivityByID(pb.ActivityID.Int64)
 		if err != nil {
-			fmt.Printf("service: get act by id: %w", err)
+			fmt.Printf("service: get act by id: %v", err)
 			continue
 		}
 

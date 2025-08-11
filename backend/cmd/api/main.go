@@ -22,7 +22,7 @@ func main() {
 	c := cfg.Load("config.json")
 	database, err := db.NewSqlStore(c.DatabaseURL)
 	if err != nil {
-		stdlog.Fatalf("%w", err)
+		stdlog.Fatalf("%v", err)
 	}
 
 	as := db.NewActivityStore(database)
