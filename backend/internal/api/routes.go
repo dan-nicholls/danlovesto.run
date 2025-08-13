@@ -17,4 +17,5 @@ func AddRoutes(mux *http.ServeMux, log log.Logger, cfg *cfg.Config, startTime ti
 	mux.Handle("/api/v1/runs/personal-bests", handlePersonalBests(log, rs)) 
 	mux.Handle("/api/v1/runs/longest", handleUnderConstruction()) 
 	mux.Handle("/api/v1/stats/summary", handleStatSummary(log, rs)) 
+	mux.Handle("/api/v1/stats/heatmap", handleStatsHeatmap(log, rs))
 }

@@ -48,3 +48,10 @@ This endpoint fetches the personal best times for the following distances:
 ```sh
     curl -X POST "http://localhost:3000/api/v1/runs/personal-bests"
 ```
+
+## getHeatmapData
+> Get the heatmap data
+
+```sh
+    curl -X POST "http://localhost:3000/api/v1/stats/heatmap"
+```

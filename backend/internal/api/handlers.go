@@ -10,6 +10,7 @@ import (
 	"github.com/dan-nicholls/danlovesto.run/backend/internal/log"
 	"github.com/dan-nicholls/danlovesto.run/backend/internal/model"
 	"github.com/dan-nicholls/danlovesto.run/backend/internal/service"
+	"github.com/dan-nicholls/danlovesto.run/backend/internal/stats"
 )
 
 func encode[T any](w http.ResponseWriter, r *http.Request, status int, v T) error {
@@ -140,5 +141,46 @@ func handlePersonalBests(logger log.Logger, rs *service.RunService) http.Handler
 func handleUnderConstruction() http.Handler {
 	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "under construction", http.StatusServiceUnavailable)
+	})
+}
+
+func handleStatsHeatmap(logger log.Logger, rs *service.RunService ) http.Handler {
+	// TODO - returns models.HeatmapData
+	// TODO - Query parameters to support:
+	//   from_year    int    // first year to include (e.g., 2020)
+	//   to_year      int    // last year to include (e.g., 2025)
+	//   levels       int    // number of color levels (e.g., 5)
+	//
+	// Example:
+	//   GET /api/v1/stats/heatmap?from_year=2022&to_year=2025&levels=5
+
+	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+		// Parse and validate input parameters
+		params := model.HeatMapParameters{
+			FromYear: 2024,
+			ToYear: 2025,
+			Unit: "km",
+			Scale: "linear",
+			Levels: 5,
+		}
+
+		// Fetch Activities
+		acts, err := rs.ListActivities()
+		if err != nil {
+			logger.Errorf("Failed to get activities for heatmap: %v", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+		}
+
+		heatmap, err := stats.CreateHeatMap(acts, params)
+		if err != nil {
+			logger.Errorf("Failed to create heatmap: %v", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+		}
+
+		err = encode(w, r, http.StatusOK, heatmap)
+		if err != nil {
+			logger.Errorf("Failed to encode heatmap response: %w", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+		}
 	})
 }
