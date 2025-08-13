@@ -1,0 +1,195 @@
+package stats
+
+import (
+	"time"
+	"strconv"
+	"fmt"
+
+	"github.com/dan-nicholls/danlovesto.run/backend/internal/model"
+)
+
+// TODO - Create a builder to set the defaults
+
+func GetYearBounds(year int) (startDate, endDate time.Time) {
+	startDate = time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC)
+	endDate = time.Date(year, time.December, 31, 0,0,0,0, time.UTC)
+	return
+}
+
+func BuildEmptyYear(startDate, endDate time.Time) model.Year {
+	daysArr := make([]model.Day, 0)	
+	for d := startDate; !d.After(endDate); d = d.AddDate(0, 0, 1) {
+		dc := model.Day{ Date: d }
+		daysArr = append(daysArr, dc)
+	}
+	return model.Year{
+		Year: startDate.Year(),
+		From: startDate,
+		To: endDate,
+		Days: daysArr,
+	} 
+}
+
+func BuildEmptyYears(startDate, endDate, now time.Time) []model.Year {
+	// check if endDate is before StartDate
+	if startDate.After(endDate) {
+		return []model.Year{}
+	}
+
+	// Calculate Year range
+	fromYear := startDate.Year()
+	if endDate.After(now) {
+		endDate = now
+	}
+	toYear := endDate.Year()
+
+	years := make([]model.Year, 0, toYear-fromYear+1)
+	for i:= fromYear; i <= toYear; i++ {
+		// Check if start and end dates fall in current year
+		start, end :=  GetYearBounds(i)
+		if startDate.After(start) {
+			start = startDate
+		}
+		if endDate.Before(end) {
+			end = endDate
+		}
+		years = append(years, BuildEmptyYear(start, end))
+	}
+	return years
+}
+
+func CalculateStops(levels int) []float64 {
+	if levels < 2 {
+		return nil
+	}
+	n := levels - 1
+	stops := make([]float64, n)
+	step := 1.0 / float64(levels)
+	for i := 1; i < levels; i++ {
+		stops[i-1] = float64(i) * step
+	}
+	return stops
+}
+
+func CalculateEdges(maxVal float64, stops []float64) []float64 {
+	edges := make([]float64, len(stops))
+	for i, s := range stops {
+		edges[i] = float64(maxVal)*s
+	}
+	return edges
+}
+
+func levelFromEdges(dist float64, edges []float64) int {
+	for i, e := range edges {
+		if dist <= e {
+			return i
+		}
+	}
+	return len(edges)
+}
+
+func GetLabelsFromEdges(edges []float64) []string {
+	res := make([]string, len(edges))
+	for i, e := range edges {
+		s := ""
+		if i > 0 && i < len(edges)-1 {
+			s += "<"
+		}
+		if i == len(edges)-1 {
+			s += ">"
+		}
+		s += strconv.FormatFloat(e, 'f', -1, 64)
+		res[i] = s
+	}
+	return res
+}
+
+func CreateHeatMap(acts []*model.Activity, p model.HeatMapParameters) (model.HeatmapData, error) {
+	// Calculate firstActive
+	daily := make(map[string]float64, len(acts))
+	for _, a := range acts {
+		d := a.StartDateLocal.Format("2006-01-02")
+		daily[d] += a.Distance
+	}
+
+	// Calc edges and Stops
+	globalMax := 0.0
+	for _, d := range daily {
+		if d > globalMax {
+			globalMax = d
+		}
+	}
+
+	// Buckets
+	stops := CalculateStops(p.Levels)
+	edges := CalculateEdges(globalMax, stops)
+	labels := GetLabelsFromEdges(edges)
+
+	bucketDetails := model.BucketDetails{
+		Scale: "linear",
+		Domain: [2]float64{0, globalMax},
+		Levels: p.Levels,
+		Stops: stops,
+		Edges: edges,
+		Labels: labels,
+	}
+
+	// Build Empty Years
+	start, _ := GetYearBounds(p.FromYear)
+	_, end := GetYearBounds(p.ToYear)
+	now := time.Now().Local()
+	years := BuildEmptyYears(start, end, now)
+
+	for dayStr, dist := range daily {
+		day, err := time.ParseInLocation("2006-01-02", dayStr, time.UTC)
+		if err != nil {
+			return model.HeatmapData{}, fmt.Errorf("parse day %q: %w", dayStr, err)
+		}
+		dc, err := GetDay(years, day)
+		if err != nil {
+			// Day might be outside requested range; skip safely.
+			continue
+		}
+		dc.Distance = dist
+	}
+		
+	// Assign levels and compute stats
+	for yi := range years {
+		total := 0.0
+		dayCount := 0
+		for di := range years[yi].Days {
+			d := &years[yi].Days[di]
+			d.Level = levelFromEdges(d.Distance, edges)
+			total += d.Distance
+			dayCount++
+		}
+		avg := 0.0
+		if dayCount > 0 {
+			avg = total / float64(dayCount)
+		}
+		years[yi].Stats.TotalDistance = total
+		years[yi].Stats.AvgDistance = avg
+	}
+	
+	// Build Response
+	h := model.HeatmapData{
+		Buckets: bucketDetails,
+		Years: years,
+		Today: now,
+	}
+
+	return h, nil
+}
+
+func GetDay(years []model.Year, day time.Time) (*model.Day, error) {
+	for i := range years {
+		if years[i].Year == day.Year() {
+			for j := range years[i].Days {
+				if years[i].Days[j].Date.Equal(day) {
+					return &years[i].Days[j], nil
+				}	
+			}
+		}
+	}
+	return nil, fmt.Errorf("day %v not found", day.Format("2006-01-02"))
+}

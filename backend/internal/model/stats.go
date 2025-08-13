@@ -5,30 +5,30 @@ import (
 )
 
 type YearStats struct {
-	TotalDistance int `json:"totalDistance"`
+	TotalDistance float64 `json:"totalDistance"`
 	AvgDistance float64 `json:"avgDistance"`
 }
 
-type DayCell struct {
+type Day struct {
 	Date time.Time `json:"date"`
 	Distance float64 `json:"distance"`
 	Level int `json:"level"`
-	Disabled bool `json:"disabled"`
-}
-
-type Week struct {
-	WeekIndex int `json:"weekIndex"`
-	WeekStartDate int `json:"weekStartDate"`
-	Days []DayCell `json:"days"`
 }
 
 type Year struct {
 	Year int `json:"year"`
-	FirstActiveDate time.Time `json:"firstActiveDate"`
 	From time.Time `json:"from"`
 	To time.Time `json:"to"`
 	Stats YearStats `json:"stats"`
-	Grid []Week `json:"grid"`
+	Days []Day `json:"days"`
+}
+
+type HeatMapParameters struct {
+	FromYear int // First year to include 
+	ToYear int // Last year to include
+	Unit string // Default final units (Default: km)
+	Scale string // Scale of buckets (Supported: Linear)
+	Levels int // Total number of buckets	
 }
 
 type BucketDetails struct {
@@ -41,7 +41,6 @@ type BucketDetails struct {
 }
 
 type HeatmapData struct {
-	WeekStart string `json:"weekStart"`
 	Today time.Time `json:"today"`
 	Years []Year `json:"years"`
 	Buckets BucketDetails `json:"buckets"`
