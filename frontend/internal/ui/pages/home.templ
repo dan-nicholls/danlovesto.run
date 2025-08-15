@@ -1,0 +1,20 @@
+package pages
+
+import (
+	"github.com/dan-nicholls/danlovesto.run/frontend/internal/ui/layouts"
+)
+
+type Info struct { Version string; Uptime string }
+
+templ Home(info Info) {
+	@layouts.Base("danlovesto.run - Home") {
+		@homeBody(info)
+	}
+}
+
+templ homeBody(info Info) {
+	<main>
+		<h1>Welcome!</h1>
+		<p>Version: {info.Version} - Uptime: {info.Uptime}</p>
+	</main>
+}
