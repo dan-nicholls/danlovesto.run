@@ -5,24 +5,26 @@ import (
 
 	"github.com/go-chi/chi/v5"
     "github.com/go-chi/chi/v5/middleware"
+	"github.com/dan-nicholls/danlovesto.run/frontend/internal/api"
 )
 
 type Server struct {
-	apiURL string
 	r *chi.Mux
+	api *api.StatsService
 }
 
-
-func New(apiUrl string) *Server {
+func New(api *api.StatsService) *Server {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger, middleware.RequestID, middleware.Recoverer)
 
 	srv := &Server{
-		apiURL: apiUrl,
 		r: r,
+		api: api,
 	}
 
 	// Setup Routes
+	// TODO - Setup static assets
+	// TODO - Setup /health
 	r.Get("/", srv.handleHome)
 
 	return srv

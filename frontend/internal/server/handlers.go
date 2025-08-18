@@ -2,36 +2,32 @@ package server
 
 import (
 	"net/http"
-	"encoding/json"
-	"context"
-	"fmt"
+	"log"
 
 	"github.com/dan-nicholls/danlovesto.run/frontend/internal/ui/pages"
 )
 
-type Info struct {
-	Uptime string `json:"uptime"`
-	Version string `json:"version"`
-}
 
 func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	var info Info
-	_ = s.apiGet(ctx, "/info", &info)
-	pages.Home(pages.Info{Version: info.Version, Uptime: info.Uptime}).Render(ctx, w)
-}
-
-func (s *Server) apiGet(ctx context.Context, path string, v any) error {
-	url := fmt.Sprintf("%s%s", s.apiURL, path)
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	res, err := http.DefaultClient.Do(req)
+	info, err := s.api.Info(ctx)
 	if err != nil {
-		return err
+		log.Println("error fetching info: %w", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)		
 	}
-	defer res.Body.Close()
 
-	if res.StatusCode >= 300 {
-		return fmt.Errorf("api %s -> %d", path, res.StatusCode)
+	summary, err := s.api.Summary(ctx)
+	if err != nil {
+		log.Println("error fetching summary: %w", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)		
+		
 	}
-	return json.NewDecoder(res.Body).Decode(v)
+	
+	dl, err := s.api.DailyLogs(ctx)
+	if err != nil {
+		log.Println("error fetching daily logs: %w", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)		
+	}
+
+	pages.Home(info, summary, dl).Render(ctx, w)
 }

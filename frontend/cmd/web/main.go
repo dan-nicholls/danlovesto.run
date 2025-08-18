@@ -7,22 +7,26 @@ import (
 	"net/http"
 	
 	"github.com/dan-nicholls/danlovesto.run/frontend/internal/server"
+	"github.com/dan-nicholls/danlovesto.run/frontend/internal/api"
 )
 
 func main() {
 	fmt.Println("Hello World!")
-	api := os.Getenv("API_URL")
-	if api == "" {
-		api = "http://localhost:3000/api/v1"
+	apiUrl := os.Getenv("API_URL")
+	if apiUrl == "" {
+		apiUrl = "http://localhost:3000/api/v1"
 	}
 	port := os.Getenv("UI_PORT")
 	if port == "" {
 		port = "3001"
 	}
-	srv := server.New(api)
+
+	httpClient := api.NewClient(apiUrl)
+	ss := api.NewStatsService(httpClient)
+	srv := server.New(ss)
 
 	addr := fmt.Sprintf(":%s", port)
-	log.Printf("Listening on %s (API=%s)\n", port, api)
+	log.Printf("Listening on %s (API=%s)\n", port, apiUrl)
 	if err := http.ListenAndServe(addr, srv.Router()); err != nil {
 		log.Fatal(err)
 	}
