@@ -3,19 +3,16 @@ package server
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-    "github.com/go-chi/chi/v5/middleware"
 	"github.com/dan-nicholls/danlovesto.run/frontend/internal/api"
 )
 
 type Server struct {
-	r *chi.Mux
+	r *http.ServeMux
 	api *api.StatsService
 }
 
 func New(api *api.StatsService) *Server {
-	r := chi.NewRouter()
-	r.Use(middleware.Logger, middleware.RequestID, middleware.Recoverer)
+	r := http.NewServeMux()
 
 	srv := &Server{
 		r: r,
@@ -25,7 +22,7 @@ func New(api *api.StatsService) *Server {
 	// Setup Routes
 	// TODO - Setup static assets
 	// TODO - Setup /health
-	r.Get("/", srv.handleHome)
+	r.Handle("/", srv.handleHome())
 
 	return srv
 }
