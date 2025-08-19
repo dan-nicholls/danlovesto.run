@@ -32,6 +32,7 @@ go.work.sum
 # .vscode/
 
 runs.json
+data/
 
 # Compiled Go files
 *_templ.go
