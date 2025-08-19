@@ -3,8 +3,8 @@ package service
 import (
 	"fmt"
 
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/db"
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/model"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/db"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/model"
 )
 
 type RunService struct {

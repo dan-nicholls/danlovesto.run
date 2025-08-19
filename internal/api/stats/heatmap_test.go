@@ -4,7 +4,7 @@ import (
 	"time"
 	"testing"
 
-	//"github.com/dan-nicholls/danlovesto.run/backend/internal/model"
+	//"github.com/dan-nicholls/danlovesto.run/internal/api/model"
 )
 
 //func TestCreateHeatMap(t *testing.T) {

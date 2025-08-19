@@ -6,8 +6,8 @@ import (
 	"os"
 	"net/http"
 	
-	"github.com/dan-nicholls/danlovesto.run/frontend/internal/server"
-	"github.com/dan-nicholls/danlovesto.run/frontend/internal/api"
+	"github.com/dan-nicholls/danlovesto.run/internal/web/server"
+	"github.com/dan-nicholls/danlovesto.run/internal/web/apiclient"
 )
 
 func main() {

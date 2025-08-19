@@ -4,9 +4,9 @@ import (
 	"time"
 	"net/http"
 
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/cfg"
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/log"
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/service"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/cfg"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/log"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/service"
 )
 
 func AddRoutes(mux *http.ServeMux, log log.Logger, cfg *cfg.Config, startTime time.Time, rs *service.RunService) {

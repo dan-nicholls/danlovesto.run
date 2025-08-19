@@ -3,7 +3,7 @@ package db
 import (
 	"fmt"
 	"time"
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/model"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/model"
 )
 
 type PBRepo interface {

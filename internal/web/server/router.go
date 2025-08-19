@@ -3,7 +3,7 @@ package server
 import (
 	"net/http"
 
-	"github.com/dan-nicholls/danlovesto.run/frontend/internal/api"
+	"github.com/dan-nicholls/danlovesto.run/internal/web/apiclient"
 )
 
 type Server struct {

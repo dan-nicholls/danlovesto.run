@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/dan-nicholls/danlovesto.run/frontend/internal/ui/pages"
+	"github.com/dan-nicholls/danlovesto.run/internal/web/ui/pages"
 )
 
 

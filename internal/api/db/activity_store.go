@@ -7,7 +7,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/model"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/model"
 )
 
 type ActivityRepo interface {

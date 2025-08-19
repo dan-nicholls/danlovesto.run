@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"fmt"
 
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/model"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/model"
 )
 
 // TODO - Create a builder to set the defaults

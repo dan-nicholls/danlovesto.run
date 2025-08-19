@@ -6,11 +6,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/cfg"
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/log"
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/model"
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/service"
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/stats"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/cfg"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/log"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/model"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/service"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/stats"
 )
 
 func encode[T any](w http.ResponseWriter, r *http.Request, status int, v T) error {
