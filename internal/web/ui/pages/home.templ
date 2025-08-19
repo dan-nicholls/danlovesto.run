@@ -2,16 +2,16 @@ package pages
 
 import (
 	"github.com/dan-nicholls/danlovesto.run/internal/web/ui/layouts"
-	"github.com/dan-nicholls/danlovesto.run/internal/web/apiclient"
+	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
 )
 
-templ Home(info api.Info, stats api.Summary, hmData api.HeatmapData) {
+templ Home(info contracts.Info, stats contracts.Summary, hmData contracts.HeatmapData) {
 	@layouts.Base("danlovesto.run - Home") {
 		@homeBody(info, stats, hmData)
 	}
 }
 
-templ homeBody(info api.Info, stats api.Summary, hmData api.HeatmapData) {
+templ homeBody(info contracts.Info, stats contracts.Summary, hmData contracts.HeatmapData) {
 	<main>
 		<h1>danlovesto.run</h1>
 		<h1>Welcome!</h1>
@@ -21,7 +21,7 @@ templ homeBody(info api.Info, stats api.Summary, hmData api.HeatmapData) {
 	</main>
 }
 
-templ SummaryComponent(stats api.Summary) {
+templ SummaryComponent(stats contracts.Summary) {
 	<h2>Summary</h2>
 	<div>
 		<div>
@@ -43,7 +43,7 @@ templ SummaryComponent(stats api.Summary) {
 	</div>
 }
 
-templ DailyLog(hd api.HeatmapData) {
+templ DailyLog(hd contracts.HeatmapData) {
 	<div>
 		<h2>Daily Log</h2>
 		<p>heatmap datat to make sure im doing my time</p>

@@ -1,8 +1,20 @@
-package model
+package contracts 
 
 import (
 	"time"
 )
+
+type Info struct {
+	Uptime string `json:"uptime"`
+	Version string `json:"version"`
+}
+
+type Summary struct {
+	TotalRuns int `json:"total_runs"`
+	TotalDistance float64 `json:"total_distance"`
+	TotalHours int `json:"total_hours"`
+	TotalClimbed int `json:"total_climbed"`
+}
 
 type YearStats struct {
 	TotalDistance float64 `json:"totalDistance"`
@@ -10,7 +22,7 @@ type YearStats struct {
 }
 
 type Day struct {
-	Date time.Time `json:"date"`
+	Date string `json:"date"`
 	Distance float64 `json:"distance"`
 	Level int `json:"level"`
 }
@@ -44,4 +56,12 @@ type HeatmapData struct {
 	Today time.Time `json:"today"`
 	Years []Year `json:"years"`
 	Buckets BucketDetails `json:"buckets"`
+}
+
+type HeatmapParams struct {
+	FromYear int // First year to include 
+	ToYear int // Last year to include
+	Unit string // Default final units (Default: km)
+	Scale string // Scale of buckets (Supported: Linear)
+	Levels int // Total number of buckets	
 }
