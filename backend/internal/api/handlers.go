@@ -67,7 +67,7 @@ func handleInfo(logger log.Logger, cfg *cfg.Config, start time.Time) http.Handle
 func handleStatSummary(logger log.Logger, rs *service.RunService) http.Handler {
 	type response struct {
 		TotalRuns int `json:"total_runs"`
-		TotalDistance float64 `json:"total_distance"`
+		TotalDistance int `json:"total_distance"`
 		TotalHours int `json:"total_hours"`
 		TotalClimbed int `json:"total_climbed"`
 	}
@@ -76,7 +76,8 @@ func handleStatSummary(logger log.Logger, rs *service.RunService) http.Handler {
 		logger.Infof("%s - %s - Handling Stat Summary Endpoint", r.Method, r.URL.Path)
 
 		totalRuns, _ := rs.TotalRuns()
-		totalDistance , _ := rs.TotalDistance()
+		totalDistanceF , _ := rs.TotalDistance()
+		totalDistance := int(totalDistanceF)
 		totalHours, _ := rs.TotalHours()
 		totalClimbed, _ := rs.TotalClimbed()
 		res := response{
