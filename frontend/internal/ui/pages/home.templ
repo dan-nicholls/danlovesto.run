@@ -1,0 +1,58 @@
+package pages
+
+import (
+	"github.com/dan-nicholls/danlovesto.run/frontend/internal/ui/layouts"
+	"github.com/dan-nicholls/danlovesto.run/frontend/internal/api"
+)
+
+templ Home(info api.Info, stats api.Summary, hmData api.HeatmapData) {
+	@layouts.Base("danlovesto.run - Home") {
+		@homeBody(info, stats, hmData)
+	}
+}
+
+templ homeBody(info api.Info, stats api.Summary, hmData api.HeatmapData) {
+	<main>
+		<h1>danlovesto.run</h1>
+		<h1>Welcome!</h1>
+		<p>Version: {info.Version} - Uptime: {info.Uptime}</p>
+		@SummaryComponent(stats)
+		@DailyLog(hmData)
+	</main>
+}
+
+templ SummaryComponent(stats api.Summary) {
+	<h2>Summary</h2>
+	<div>
+		<div>
+			<div>{stats.TotalRuns}</div>
+			<div>runs</div>
+		</div>
+		<div> 
+			<div>{stats.TotalDistance}</div>
+			<div>kms</div>
+		</div>
+		<div>
+			<div>{stats.TotalHours}</div>
+			<div>hours</div>
+		</div>
+		<div>
+			<div>{stats.TotalClimbed}</div>
+			<div>m climbed</div>
+		</div>
+	</div>
+}
+
+templ DailyLog(hd api.HeatmapData) {
+	<div>
+		<h2>Daily Log</h2>
+		<p>heatmap datat to make sure im doing my time</p>
+		for _, y := range hd.Years {
+			<div>
+				<div>{y.Year}</div>
+				<div>{y.Stats.TotalDistance} kms</div>
+				<div>{y.Stats.AvgDistance} km/day</div>
+			</div>
+		}
+	</div>
+}
