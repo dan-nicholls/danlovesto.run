@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"fmt"
 
-	"github.com/dan-nicholls/danlovesto.run/internal/api/model"
+	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
 )
 
 // TODO - Create a builder to set the defaults
@@ -16,13 +16,13 @@ func GetYearBounds(year int) (startDate, endDate time.Time) {
 	return
 }
 
-func BuildEmptyYear(startDate, endDate time.Time) model.Year {
-	daysArr := make([]model.Day, 0)	
+func BuildEmptyYear(startDate, endDate time.Time) contracts.Year {
+	daysArr := make([]contracts.Day, 0)	
 	for d := startDate; !d.After(endDate); d = d.AddDate(0, 0, 1) {
-		dc := model.Day{ Date: d }
+		dc := contracts.Day{ Date: d.Format("2006-01-02")}
 		daysArr = append(daysArr, dc)
 	}
-	return model.Year{
+	return contracts.Year{
 		Year: startDate.Year(),
 		From: startDate,
 		To: endDate,
@@ -30,10 +30,10 @@ func BuildEmptyYear(startDate, endDate time.Time) model.Year {
 	} 
 }
 
-func BuildEmptyYears(startDate, endDate, now time.Time) []model.Year {
+func BuildEmptyYears(startDate, endDate, now time.Time) []contracts.Year {
 	// check if endDate is before StartDate
 	if startDate.After(endDate) {
-		return []model.Year{}
+		return []contracts.Year{}
 	}
 
 	// Calculate Year range
@@ -43,7 +43,7 @@ func BuildEmptyYears(startDate, endDate, now time.Time) []model.Year {
 	}
 	toYear := endDate.Year()
 
-	years := make([]model.Year, 0, toYear-fromYear+1)
+	years := make([]contracts.Year, 0, toYear-fromYear+1)
 	for i:= fromYear; i <= toYear; i++ {
 		// Check if start and end dates fall in current year
 		start, end :=  GetYearBounds(i)
@@ -104,7 +104,7 @@ func GetLabelsFromEdges(edges []float64) []string {
 	return res
 }
 
-func CreateHeatMap(acts []*model.Activity, p model.HeatMapParameters) (model.HeatmapData, error) {
+func CreateHeatMap(acts []*contracts.Activity, p contracts.HeatMapParameters) (contracts.HeatmapData, error) {
 	// Calculate firstActive
 	daily := make(map[string]float64, len(acts))
 	for _, a := range acts {
@@ -125,7 +125,7 @@ func CreateHeatMap(acts []*model.Activity, p model.HeatMapParameters) (model.Hea
 	edges := CalculateEdges(globalMax, stops)
 	labels := GetLabelsFromEdges(edges)
 
-	bucketDetails := model.BucketDetails{
+	bucketDetails := contracts.BucketDetails{
 		Scale: "linear",
 		Domain: [2]float64{0, globalMax},
 		Levels: p.Levels,
@@ -143,7 +143,7 @@ func CreateHeatMap(acts []*model.Activity, p model.HeatMapParameters) (model.Hea
 	for dayStr, dist := range daily {
 		day, err := time.ParseInLocation("2006-01-02", dayStr, time.UTC)
 		if err != nil {
-			return model.HeatmapData{}, fmt.Errorf("parse day %q: %w", dayStr, err)
+			return contracts.HeatmapData{}, fmt.Errorf("parse day %q: %w", dayStr, err)
 		}
 		dc, err := GetDay(years, day)
 		if err != nil {
@@ -172,7 +172,7 @@ func CreateHeatMap(acts []*model.Activity, p model.HeatMapParameters) (model.Hea
 	}
 	
 	// Build Response
-	h := model.HeatmapData{
+	h := contracts.HeatmapData{
 		Buckets: bucketDetails,
 		Years: years,
 		Today: now,
@@ -181,11 +181,12 @@ func CreateHeatMap(acts []*model.Activity, p model.HeatMapParameters) (model.Hea
 	return h, nil
 }
 
-func GetDay(years []model.Year, day time.Time) (*model.Day, error) {
+func GetDay(years []contracts.Year, day time.Time) (*contracts.Day, error) {
+	str := day.Format("2006-01-02")
 	for i := range years {
 		if years[i].Year == day.Year() {
 			for j := range years[i].Days {
-				if years[i].Days[j].Date.Equal(day) {
+				if years[i].Days[j].Date == str {
 					return &years[i].Days[j], nil
 				}	
 			}

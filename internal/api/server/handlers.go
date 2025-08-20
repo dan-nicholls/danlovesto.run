@@ -8,9 +8,9 @@ import (
 
 	"github.com/dan-nicholls/danlovesto.run/internal/api/cfg"
 	"github.com/dan-nicholls/danlovesto.run/internal/api/log"
-	"github.com/dan-nicholls/danlovesto.run/internal/api/model"
 	"github.com/dan-nicholls/danlovesto.run/internal/api/service"
 	"github.com/dan-nicholls/danlovesto.run/internal/api/stats"
+	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
 )
 
 func encode[T any](w http.ResponseWriter, r *http.Request, status int, v T) error {
@@ -97,11 +97,11 @@ func handleStatSummary(logger log.Logger, rs *service.RunService) http.Handler {
 
 func handlePersonalBests(logger log.Logger, rs *service.RunService) http.Handler {
 	type Response struct {
-		OneKm *model.Activity `json:"1km"`
-		FiveKm *model.Activity `json:"5km"`
-		TenKm *model.Activity `json:"10km"`
-		HalfMarathon *model.Activity `json:"Half-Marathon"`
-		Marathon *model.Activity `json:"Marathon"`
+		OneKm *contracts.Activity `json:"1km"`
+		FiveKm *contracts.Activity `json:"5km"`
+		TenKm *contracts.Activity `json:"10km"`
+		HalfMarathon *contracts.Activity `json:"Half-Marathon"`
+		Marathon *contracts.Activity `json:"Marathon"`
 	}
 
 	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
@@ -146,7 +146,7 @@ func handleUnderConstruction() http.Handler {
 }
 
 func handleStatsHeatmap(logger log.Logger, rs *service.RunService ) http.Handler {
-	// TODO - returns models.HeatmapData
+	// TODO - returns contracts.HeatmapData
 	// TODO - Query parameters to support:
 	//   from_year    int    // first year to include (e.g., 2020)
 	//   to_year      int    // last year to include (e.g., 2025)
@@ -157,7 +157,7 @@ func handleStatsHeatmap(logger log.Logger, rs *service.RunService ) http.Handler
 
 	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
 		// Parse and validate input parameters
-		params := model.HeatMapParameters{
+		params := contracts.HeatMapParameters{
 			FromYear: 2024,
 			ToYear: 2025,
 			Unit: "km",

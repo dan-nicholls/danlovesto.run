@@ -3,12 +3,12 @@ package db
 import (
 	"fmt"
 	"time"
-	"github.com/dan-nicholls/danlovesto.run/internal/api/model"
+	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
 )
 
 type PBRepo interface {
 	SetPB(distance string, activityID int64) error
-	GetAllPBs() ([]*model.PersonalBest, error)
+	GetAllPBs() ([]*contracts.PersonalBest, error)
 }
 
 type PBStore struct {
@@ -29,7 +29,7 @@ func (s *PBStore) SetPB(distance string, activityID int64) error {
 	return err
 }
 
-func (s *PBStore) GetAllPBs() ([]*model.PersonalBest, error) {
+func (s *PBStore) GetAllPBs() ([]*contracts.PersonalBest, error) {
 	rows, err := s.DB.Conn.Query(`
 		SELECT distance, activity_id, updated_at
 		FROM personal_bests
@@ -39,9 +39,9 @@ func (s *PBStore) GetAllPBs() ([]*model.PersonalBest, error) {
 	}
 	defer rows.Close()
 
-	var list []*model.PersonalBest
+	var list []*contracts.PersonalBest
 	for rows.Next() {
-		var pb model.PersonalBest
+		var pb contracts.PersonalBest
 		if err := rows.Scan(&pb.Distance, &pb.ActivityID, &pb.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan pb: %w", err)
 		}

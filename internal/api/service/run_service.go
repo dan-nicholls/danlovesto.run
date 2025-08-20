@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/dan-nicholls/danlovesto.run/internal/api/db"
-	"github.com/dan-nicholls/danlovesto.run/internal/api/model"
+	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
 )
 
 type RunService struct {
@@ -19,7 +19,7 @@ func NewRunService(ar db.ActivityRepo, pr db.PBRepo) *RunService {
 	}
 }
 
-func (r *RunService) SaveActivity(a *model.Activity) error {
+func (r *RunService) SaveActivity(a *contracts.Activity) error {
 	_, err := r.activities.CreateActivity(a)
 	if err != nil {
 		return fmt.Errorf("service: save activity: %w", err)
@@ -27,7 +27,7 @@ func (r *RunService) SaveActivity(a *model.Activity) error {
 	return nil
 }
 
-func (r *RunService) ListActivities() ([]*model.Activity, error) {
+func (r *RunService) ListActivities() ([]*contracts.Activity, error) {
 	activities, err := r.activities.GetAllActivities()
 	if err != nil {
 		return nil, fmt.Errorf("service: list activities: %w", err)
@@ -36,13 +36,13 @@ func (r *RunService) ListActivities() ([]*model.Activity, error) {
 	return activities, nil
 }
 
-func (s *RunService) ListDetailedPBs() ([]*model.DetailedPersonalBest, error) {
+func (s *RunService) ListDetailedPBs() ([]*contracts.DetailedPersonalBest, error) {
 	pbs, err := s.pbs.GetAllPBs()
 	if err != nil {
 		return nil, fmt.Errorf("service: list detailed pbs: %w", err)
 	}
 
-	var detailedPBs []*model.DetailedPersonalBest
+	var detailedPBs []*contracts.DetailedPersonalBest
 	for _, pb := range pbs {
 		if !pb.ActivityID.Valid {
 			continue
@@ -53,7 +53,7 @@ func (s *RunService) ListDetailedPBs() ([]*model.DetailedPersonalBest, error) {
 			continue
 		}
 
-		dpb := model.DetailedPersonalBest{
+		dpb := contracts.DetailedPersonalBest{
 			Distance: pb.Distance,
 			Activity: a,
 			UpdatedAt: pb.UpdatedAt,
