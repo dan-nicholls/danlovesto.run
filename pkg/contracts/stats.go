@@ -35,7 +35,7 @@ type Year struct {
 	Days []Day `json:"days"`
 }
 
-type HeatMapParameters struct {
+type HeatMapParams struct {
 	FromYear int // First year to include 
 	ToYear int // Last year to include
 	Unit string // Default final units (Default: km)
@@ -56,12 +56,4 @@ type HeatmapData struct {
 	Today time.Time `json:"today"`
 	Years []Year `json:"years"`
 	Buckets BucketDetails `json:"buckets"`
-}
-
-type HeatmapParams struct {
-	FromYear int // First year to include 
-	ToYear int // Last year to include
-	Unit string // Default final units (Default: km)
-	Scale string // Scale of buckets (Supported: Linear)
-	Levels int // Total number of buckets	
 }

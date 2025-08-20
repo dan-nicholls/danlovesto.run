@@ -104,7 +104,7 @@ func GetLabelsFromEdges(edges []float64) []string {
 	return res
 }
 
-func CreateHeatMap(acts []*contracts.Activity, p contracts.HeatMapParameters) (contracts.HeatmapData, error) {
+func CreateHeatMap(acts []*contracts.Activity, p contracts.HeatMapParams) (contracts.HeatmapData, error) {
 	// Calculate firstActive
 	daily := make(map[string]float64, len(acts))
 	for _, a := range acts {

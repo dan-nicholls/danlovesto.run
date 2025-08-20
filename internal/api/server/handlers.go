@@ -157,7 +157,7 @@ func handleStatsHeatmap(logger log.Logger, rs *service.RunService ) http.Handler
 
 	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
 		// Parse and validate input parameters
-		params := contracts.HeatMapParameters{
+		params := contracts.HeatMapParams{
 			FromYear: 2024,
 			ToYear: 2025,
 			Unit: "km",
