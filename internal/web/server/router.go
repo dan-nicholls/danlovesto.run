@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/dan-nicholls/danlovesto.run/internal/web/apiclient"
+	"github.com/dan-nicholls/danlovesto.run/internal/web"
 )
 
 type Server struct {
@@ -20,8 +21,8 @@ func New(api *api.StatsService) *Server {
 	}
 
 	// Setup Routes
-	// TODO - Setup static assets
 	// TODO - Setup /health
+	r.Handle("/static/", http.StripPrefix("/static/",  web.StaticFileHandler()))
 	r.Handle("/", srv.handleHome())
 
 	return srv

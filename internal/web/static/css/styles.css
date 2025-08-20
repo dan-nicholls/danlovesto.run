@@ -1,0 +1,9 @@
+.heatmap { display:grid; grid-auto-flow: column; grid-template-rows: repeat(7, 12px); gap:3px; }
+.cell { width:12px; height:12px; border-radius:3px; background:#1f1f1f; }
+
+/* buckets */
+.lvl-0 { background:#1f1f1f; }
+.lvl-1 { background:#0e4429; }
+.lvl-2 { background:#006d32; }
+.lvl-3 { background:#26a641; }
+.lvl-4 { background:#39d353; }
