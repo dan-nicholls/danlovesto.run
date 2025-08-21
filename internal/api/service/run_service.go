@@ -28,7 +28,10 @@ func (r *RunService) SaveActivity(a *contracts.Activity) error {
 }
 
 func (r *RunService) ListActivities() ([]*contracts.Activity, error) {
-	activities, err := r.activities.GetAllActivities()
+	filter := db.ActivityFilter{
+		Types: []string{"Run"},
+	}
+	activities, err := r.activities.GetAllActivities(filter)
 	if err != nil {
 		return nil, fmt.Errorf("service: list activities: %w", err)
 	}
@@ -64,7 +67,10 @@ func (s *RunService) ListDetailedPBs() ([]*contracts.DetailedPersonalBest, error
 }
 
 func (r *RunService) TotalRuns() (int, error) {
-	activities, err := r.activities.GetAllActivities()
+	filter := db.ActivityFilter{
+		Types: []string{"Run"},
+	}
+	activities, err := r.activities.GetAllActivities(filter)
 	if err != nil {
 		return 0, fmt.Errorf("service: total runs: %w", err)
 	}
@@ -80,7 +86,10 @@ func (r *RunService) TotalRuns() (int, error) {
 
 // TODO - Refactor this to support activity and pb repos
 func (r *RunService) TotalDistance() (float64, error) {
-	activities, err := r.activities.GetAllActivities()
+	filter := db.ActivityFilter{
+		Types: []string{"Run"},
+	}
+	activities, err := r.activities.GetAllActivities(filter)
 	if err != nil {
 		return 0, fmt.Errorf("service: total distance: %w", err)
 	}
@@ -95,7 +104,10 @@ func (r *RunService) TotalDistance() (float64, error) {
 }
 
 func (r *RunService) TotalHours() (int, error) {
-	activities, err := r.activities.GetAllActivities()
+	filter := db.ActivityFilter{
+		Types: []string{"Run"},
+	}
+	activities, err := r.activities.GetAllActivities(filter)
 	if err != nil {
 		return 0, fmt.Errorf("service: total hours: %w", err)
 	}
@@ -112,7 +124,10 @@ func (r *RunService) TotalHours() (int, error) {
 }
 
 func (r *RunService) TotalClimbed() (int, error) {
-	activities, err := r.activities.GetAllActivities()
+	filter := db.ActivityFilter{
+		Types: []string{"Run"},
+	}
+	activities, err := r.activities.GetAllActivities(filter)
 	if err != nil {
 		return 0, fmt.Errorf("service: total climbed: %w", err)
 	}

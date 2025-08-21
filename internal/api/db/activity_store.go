@@ -2,6 +2,7 @@ package db
 
 import (
 	"log"
+	"strings"
 	"encoding/json"
 	"fmt"
 	"database/sql"
@@ -13,7 +14,7 @@ import (
 type ActivityRepo interface {
 	CreateActivity(a *contracts.Activity) (int64, error)
 	GetActivityByID(id int64) (*contracts.Activity, error)
-	GetAllActivities() ([]*contracts.Activity, error)
+	GetAllActivities(filter ActivityFilter) ([]*contracts.Activity, error)
 }
 
 type ActivityStore struct {
@@ -110,8 +111,8 @@ func (s *ActivityStore) GetActivityByID(id int64) (*contracts.Activity, error) {
 	return &m, nil
 }
 
-func (s *ActivityStore) GetAllActivities() ([]*contracts.Activity, error) {
-	query := `
+func (s *ActivityStore) GetAllActivities(filter ActivityFilter) ([]*contracts.Activity, error) {
+	base := `
 		SELECT 
 			id, name, resource_state,
 			athlete_id, athlete_resource_state,
@@ -124,9 +125,21 @@ func (s *ActivityStore) GetAllActivities() ([]*contracts.Activity, error) {
 			elev_high, elev_low,
 			raw
 		FROM activities
-		ORDER BY start_date DESC;
 	`
-	rows, err := s.DB.Conn.Query(query)
+	where := " WHERE 1=1"
+	args := []any{}
+	
+	// Create Filters from ActivityFilter
+	if len(filter.Types) > 0 {
+		clause, phArgs := makeInClause("type", filter.Types)
+		where += " AND " + clause
+		args = append(args, phArgs...)
+	}
+
+	order := "ORDER BY start_date DESC"
+	
+	query := base + where + order
+	rows, err := s.DB.Conn.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query activities: %w", err)
 	}
@@ -170,4 +183,19 @@ func mustParseTime(s string) time.Time {
 		return time.Time{}
 	}
 	return t
+}
+
+func makeInClause(col string, vals []string) (string, []any) {
+	// Create the correct where clause
+	// ie. "type", []string{"Run", "Walk"} => "type IN ?,?", []any{"Run","Walk"}
+	if len(vals) == 0 {
+		return "1=1", nil
+	}
+	placeholders := make([]string, len(vals))
+	args := make([]any, len(vals))
+	for i, v := range vals {
+		placeholders[i] = "?"
+		args[i] = v
+	}
+	return fmt.Sprintf("%s IN (%s)", col, strings.Join(placeholders, ",")), args
 }
