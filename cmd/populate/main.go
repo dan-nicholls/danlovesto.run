@@ -9,7 +9,7 @@ import (
 	"database/sql"
 
 	"github.com/dan-nicholls/danlovesto.run/internal/api/db"
-	"github.com/dan-nicholls/danlovesto.run/internal/api/model"
+	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
 	"github.com/dan-nicholls/danlovesto.run/internal/api/service"
 	"github.com/spf13/cobra"
 )
@@ -69,7 +69,7 @@ var activitiesCmd = &cobra.Command{
         if err != nil {
             log.Fatalf("failed to read file: %v", err)
         }
-        var activities []*model.Activity
+        var activities []*contracts.Activity
         if err := json.Unmarshal(data, &activities); err != nil {
             log.Fatalf("failed to parse JSON: %v", err)
         }
