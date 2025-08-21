@@ -106,13 +106,19 @@ func GetLabelsFromEdges(edges []float64) []string {
 
 func CreateHeatMap(acts []*contracts.Activity, p contracts.HeatMapParams) (contracts.HeatmapData, error) {
 	// Calculate firstActive
+	var minYear int
 	daily := make(map[string]float64, len(acts))
 	for _, a := range acts {
 		d := a.StartDateLocal.Format("2006-01-02")
+		y := a.StartDateLocal.Year()
 		daily[d] += a.Distance
+		if minYear == 0 || minYear > y {
+			minYear = y
+		}
 	}
 
 	// Calc edges and Stops
+	// TODO - reduce this into previous loop
 	globalMax := 0.0
 	for _, d := range daily {
 		if d > globalMax {
@@ -135,8 +141,13 @@ func CreateHeatMap(acts []*contracts.Activity, p contracts.HeatMapParams) (contr
 	}
 
 	// Build Empty Years
-	start, _ := GetYearBounds(p.FromYear)
-	_, end := GetYearBounds(p.ToYear)
+	endYear := time.Now().Year()
+	if p.ToYear != 0 {
+		endYear = min(p.ToYear,time.Now().Year())
+	}
+	start, _ := GetYearBounds(max(p.FromYear, minYear))
+	_, end := GetYearBounds(endYear)
+	fmt.Printf("%d - %d", start.Year(), end.Year())
 	now := time.Now().Local()
 	years := BuildEmptyYears(start, end, now)
 
@@ -193,4 +204,18 @@ func GetDay(years []contracts.Year, day time.Time) (*contracts.Day, error) {
 		}
 	}
 	return nil, fmt.Errorf("day %v not found", day.Format("2006-01-02"))
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

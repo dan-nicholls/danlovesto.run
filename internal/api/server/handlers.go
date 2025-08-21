@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
+	"strconv"
 
 	"github.com/dan-nicholls/danlovesto.run/internal/api/cfg"
 	"github.com/dan-nicholls/danlovesto.run/internal/api/log"
@@ -157,12 +159,27 @@ func handleStatsHeatmap(logger log.Logger, rs *service.RunService ) http.Handler
 
 	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
 		// Parse and validate input parameters
+		q := r.URL.Query()
+
+		fromYear, err := parseInt(q, "from_year", 0)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		toYear, err := parseInt(q, "to_year", 0)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		levels, err := parseInt(q, "levels", 5)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+
 		params := contracts.HeatMapParams{
-			FromYear: 2024,
-			ToYear: 2025,
+			FromYear: fromYear,
+			ToYear: toYear,
 			Unit: "km",
 			Scale: "linear",
-			Levels: 5,
+			Levels: levels,
 		}
 
 		// Fetch Activities
@@ -184,4 +201,16 @@ func handleStatsHeatmap(logger log.Logger, rs *service.RunService ) http.Handler
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 		}
 	})
+}
+
+func parseInt(q url.Values, key string, def int) (int, error) {
+	s := q.Get(key)
+	if s == "" {
+		return def, nil
+	}
+	v, e := strconv.Atoi(s)
+	if e != nil {
+		return 0, fmt.Errorf("%s must be in integer", key)
+	}
+	return v, nil
 }
