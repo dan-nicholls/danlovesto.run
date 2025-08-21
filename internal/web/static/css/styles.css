@@ -1,5 +1,7 @@
 .heatmap-container {
 	width: max-content;
+	display: flex;
+	flex-direction: column-reverse;
 }
 
 .heatmap-section {
@@ -70,18 +72,21 @@
 }
 
 /* Cell & Bubble */
-
 .cell {
 	position: relative;
 	width:12px;
 	height:12px;
 	border-radius:1px;
-	background:#1f1f1f;
 	cursor: pointer;
+	
+	/* Dynamically set color */
+	--l-min: 0%;
+	--l-max: 90%;
+	background: hsl(140 60% calc(var(--l-max) - (var(--l-max) - var(--l-min)) * var(--g)));
 }
 
 .cell::after {
-  content: attr(data-date) "\A" attr(data-distance) " km " attr(data-level) ;
+  content: attr(data-date) "\A" attr(data-distance) " km";
   position: absolute;
   bottom: 100%;
   left: 50%;
@@ -117,12 +122,6 @@
 .cell:hover::before {
   opacity: 1;
 }
-/* Buckets */
-.lvl-0 { background:#1f1f1f; }
-.lvl-1 { background:#0e4429; }
-.lvl-2 { background:#006d32; }
-.lvl-3 { background:#26a641; }
-.lvl-4 { background:#39d353; }
 
 .offset-0 >.cell:first-child { grid-row-start: 1; }
 .offset-1 >.cell:first-child { grid-row-start: 2; }

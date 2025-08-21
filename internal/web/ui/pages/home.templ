@@ -3,6 +3,7 @@ package pages
 import (
 	"fmt"
 	"time"
+	"math"
 	"github.com/dan-nicholls/danlovesto.run/internal/web/ui/layouts"
 	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
 )
@@ -56,6 +57,15 @@ func getDisabledCells(dateStr string) int {
 	return int(wd)-1
 } 
 
+func intensityGamma(dist, max, gamma float64) float64 {
+  if max <= 0 { return 0 }
+  if gamma <= 0 { gamma = 1 }
+  t := dist / max
+  if t < 0 { t = 0 }
+  if t > 1 { t = 1 }
+  return math.Pow(t, gamma)
+}
+
 templ DailyLog(hd contracts.HeatmapData) {
 	<div>
 		<h2>Daily Log</h2>
@@ -95,10 +105,11 @@ templ DailyLog(hd contracts.HeatmapData) {
 						<div class={ fmt.Sprintf("heatmap offset-%d", getDisabledCells(y.Days[0].Date))}>
 							for _, d := range y.Days {
 								<div 
-									class={ fmt.Sprintf("cell lvl-%d", d.Level) }
+									class={ fmt.Sprintf("cell") }
+									style={"--g:" + fmt.Sprintf("%.6f", intensityGamma(d.Distance, hd.Buckets.Domain[1], 0.75 ))}
+
 									data-date={d.Date}
-									data-distance={d.Distance}
-									data-level={d.Level}>
+									data-distance={d.Distance}>
 								</div>
 							}
 						</div>
