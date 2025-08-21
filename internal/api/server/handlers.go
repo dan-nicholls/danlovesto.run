@@ -148,15 +148,6 @@ func handleUnderConstruction() http.Handler {
 }
 
 func handleStatsHeatmap(logger log.Logger, rs *service.RunService ) http.Handler {
-	// TODO - returns contracts.HeatmapData
-	// TODO - Query parameters to support:
-	//   from_year    int    // first year to include (e.g., 2020)
-	//   to_year      int    // last year to include (e.g., 2025)
-	//   levels       int    // number of color levels (e.g., 5)
-	//
-	// Example:
-	//   GET /api/v1/stats/heatmap?from_year=2022&to_year=2025&levels=5
-
 	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
 		// Parse and validate input parameters
 		q := r.URL.Query()
