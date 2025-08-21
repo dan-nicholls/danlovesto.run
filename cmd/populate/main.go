@@ -8,9 +8,9 @@ import (
 	"encoding/json"
 	"database/sql"
 
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/db"
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/model"
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/service"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/db"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/model"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/service"
 	"github.com/spf13/cobra"
 )
 

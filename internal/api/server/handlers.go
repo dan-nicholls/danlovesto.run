@@ -4,12 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
+	"strconv"
 
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/cfg"
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/log"
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/model"
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/service"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/cfg"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/log"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/service"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/stats"
+	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
 )
 
 func encode[T any](w http.ResponseWriter, r *http.Request, status int, v T) error {
@@ -66,7 +69,7 @@ func handleInfo(logger log.Logger, cfg *cfg.Config, start time.Time) http.Handle
 func handleStatSummary(logger log.Logger, rs *service.RunService) http.Handler {
 	type response struct {
 		TotalRuns int `json:"total_runs"`
-		TotalDistance float64 `json:"total_distance"`
+		TotalDistance int `json:"total_distance"`
 		TotalHours int `json:"total_hours"`
 		TotalClimbed int `json:"total_climbed"`
 	}
@@ -75,7 +78,8 @@ func handleStatSummary(logger log.Logger, rs *service.RunService) http.Handler {
 		logger.Infof("%s - %s - Handling Stat Summary Endpoint", r.Method, r.URL.Path)
 
 		totalRuns, _ := rs.TotalRuns()
-		totalDistance , _ := rs.TotalDistance()
+		totalDistanceF , _ := rs.TotalDistance()
+		totalDistance := int(totalDistanceF)
 		totalHours, _ := rs.TotalHours()
 		totalClimbed, _ := rs.TotalClimbed()
 		res := response{
@@ -95,11 +99,11 @@ func handleStatSummary(logger log.Logger, rs *service.RunService) http.Handler {
 
 func handlePersonalBests(logger log.Logger, rs *service.RunService) http.Handler {
 	type Response struct {
-		OneKm *model.Activity `json:"1km"`
-		FiveKm *model.Activity `json:"5km"`
-		TenKm *model.Activity `json:"10km"`
-		HalfMarathon *model.Activity `json:"Half-Marathon"`
-		Marathon *model.Activity `json:"Marathon"`
+		OneKm *contracts.Activity `json:"1km"`
+		FiveKm *contracts.Activity `json:"5km"`
+		TenKm *contracts.Activity `json:"10km"`
+		HalfMarathon *contracts.Activity `json:"Half-Marathon"`
+		Marathon *contracts.Activity `json:"Marathon"`
 	}
 
 	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
@@ -141,4 +145,63 @@ func handleUnderConstruction() http.Handler {
 	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "under construction", http.StatusServiceUnavailable)
 	})
+}
+
+func handleStatsHeatmap(logger log.Logger, rs *service.RunService ) http.Handler {
+	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+		// Parse and validate input parameters
+		q := r.URL.Query()
+
+		fromYear, err := parseInt(q, "from_year", 0)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		toYear, err := parseInt(q, "to_year", 0)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		levels, err := parseInt(q, "levels", 5)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+
+		params := contracts.HeatMapParams{
+			FromYear: fromYear,
+			ToYear: toYear,
+			Unit: "km",
+			Scale: "linear",
+			Levels: levels,
+		}
+
+		// Fetch Activities
+		acts, err := rs.ListActivities()
+		if err != nil {
+			logger.Errorf("Failed to get activities for heatmap: %v", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+		}
+
+		heatmap, err := stats.CreateHeatMap(acts, params)
+		if err != nil {
+			logger.Errorf("Failed to create heatmap: %v", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+		}
+
+		err = encode(w, r, http.StatusOK, heatmap)
+		if err != nil {
+			logger.Errorf("Failed to encode heatmap response: %w", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+		}
+	})
+}
+
+func parseInt(q url.Values, key string, def int) (int, error) {
+	s := q.Get(key)
+	if s == "" {
+		return def, nil
+	}
+	v, e := strconv.Atoi(s)
+	if e != nil {
+		return 0, fmt.Errorf("%s must be in integer", key)
+	}
+	return v, nil
 }

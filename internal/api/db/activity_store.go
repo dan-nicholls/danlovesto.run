@@ -7,13 +7,13 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/model"
+	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
 )
 
 type ActivityRepo interface {
-	CreateActivity(a *model.Activity) (int64, error)
-	GetActivityByID(id int64) (*model.Activity, error)
-	GetAllActivities() ([]*model.Activity, error)
+	CreateActivity(a *contracts.Activity) (int64, error)
+	GetActivityByID(id int64) (*contracts.Activity, error)
+	GetAllActivities() ([]*contracts.Activity, error)
 }
 
 type ActivityStore struct {
@@ -24,7 +24,7 @@ func NewActivityStore(db *Store) *ActivityStore {
 	return &ActivityStore{DB: db}
 }
 
-func (s *ActivityStore) CreateActivity(a *model.Activity) (int64, error) {
+func (s *ActivityStore) CreateActivity(a *contracts.Activity) (int64, error) {
 	startJSON, _ := json.Marshal(a.StartLatLng)
 	endJSON, _ := json.Marshal(a.EndLatLng)
 	rawJSON, _ := json.Marshal(a)
@@ -66,7 +66,7 @@ func (s *ActivityStore) CreateActivity(a *model.Activity) (int64, error) {
     return res.LastInsertId()
 }
 
-func (s *ActivityStore) GetActivityByID(id int64) (*model.Activity, error) {
+func (s *ActivityStore) GetActivityByID(id int64) (*contracts.Activity, error) {
 	query := `
 		SELECT 
 			id, name, resource_state,
@@ -81,7 +81,7 @@ func (s *ActivityStore) GetActivityByID(id int64) (*model.Activity, error) {
 			raw
 		FROM activities WHERE id = ?`
 	row := s.DB.Conn.QueryRow(query, id)
-	var m model.Activity
+	var m contracts.Activity
 	var startJSON, endJSON []byte
 	var startStr, startLocalStr string
 
@@ -110,7 +110,7 @@ func (s *ActivityStore) GetActivityByID(id int64) (*model.Activity, error) {
 	return &m, nil
 }
 
-func (s *ActivityStore) GetAllActivities() ([]*model.Activity, error) {
+func (s *ActivityStore) GetAllActivities() ([]*contracts.Activity, error) {
 	query := `
 		SELECT 
 			id, name, resource_state,
@@ -132,9 +132,9 @@ func (s *ActivityStore) GetAllActivities() ([]*model.Activity, error) {
 	}
 	defer rows.Close()
 
-	var list []*model.Activity
+	var list []*contracts.Activity
 	for rows.Next() {
-		var m model.Activity
+		var m contracts.Activity
 		var startJSON, endJSON []byte
 		var startStr, startLocalStr string
 

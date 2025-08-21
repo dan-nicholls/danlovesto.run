@@ -1,0 +1,110 @@
+package pages
+
+import (
+	"fmt"
+	"time"
+	"github.com/dan-nicholls/danlovesto.run/internal/web/ui/layouts"
+	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
+)
+
+templ Home(info contracts.Info, stats contracts.Summary, hmData contracts.HeatmapData) {
+	@layouts.Base("danlovesto.run - Home") {
+		@homeBody(info, stats, hmData)
+	}
+}
+
+templ homeBody(info contracts.Info, stats contracts.Summary, hmData contracts.HeatmapData) {
+	<main>
+		<h1>danlovesto.run</h1>
+		<h1>Welcome!</h1>
+		<p>Version: { info.Version } - Uptime: { info.Uptime }</p>
+		@SummaryComponent(stats)
+		@DailyLog(hmData)
+	</main>
+}
+
+templ SummaryComponent(stats contracts.Summary) {
+	<h2>Summary</h2>
+	<div>
+		<div>
+			<div>{ stats.TotalRuns }</div>
+			<div>runs</div>
+		</div>
+		<div>
+			<div>{ stats.TotalDistance }</div>
+			<div>kms</div>
+		</div>
+		<div>
+			<div>{ stats.TotalHours }</div>
+			<div>hours</div>
+		</div>
+		<div>
+			<div>{ stats.TotalClimbed }</div>
+			<div>m climbed</div>
+		</div>
+	</div>
+}
+
+func getDisabledCells(dateStr string) int {
+	t, err := time.Parse("2006-01-02", dateStr); if err != nil {
+		return 0
+	}
+	wd := t.Weekday()
+	if wd == time.Sunday {
+		return 6
+	}
+	return int(wd)-1
+} 
+
+templ DailyLog(hd contracts.HeatmapData) {
+	<div>
+		<h2>Daily Log</h2>
+		<p>heatmap data to make sure im doing my time</p>
+		<div class="heatmap-container">
+			for _, y := range hd.Years {
+				<div class="heatmap-section">
+					<div class="heatmap-header">
+						<div class="title">{ y.Year }</div>
+						<div>{ fmt.Sprintf("%.0f", y.Stats.TotalDistance) } km</div>
+						<div>({ fmt.Sprintf("%.2f", y.Stats.AvgDistance) } km/day)</div>
+					</div>
+					<div class="heatmap-wrapper">
+						<div class="y-labels">
+							<div class="label">M</div>
+							<div class="label">T</div>
+							<div class="label">W</div>
+							<div class="label">T</div>
+							<div class="label">F</div>
+							<div class="label">S</div>
+							<div class="label">S</div>
+						</div>
+						<div class="x-labels">
+							<div class="x-label">jan</div>
+							<div class="x-label">feb</div>
+							<div class="x-label">mar</div>
+							<div class="x-label">apr</div>
+							<div class="x-label">may</div>
+							<div class="x-label">jun</div>
+							<div class="x-label">jul</div>
+							<div class="x-label">aug</div>
+							<div class="x-label">sep</div>
+							<div class="x-label">oct</div>
+							<div class="x-label">nov</div>
+							<div class="x-label">dec</div>
+						</div>
+						<div class={ fmt.Sprintf("heatmap offset-%d", getDisabledCells(y.Days[0].Date))}>
+							for _, d := range y.Days {
+								<div 
+									class={ fmt.Sprintf("cell lvl-%d", d.Level) }
+									data-date={d.Date}
+									data-distance={d.Distance}
+									data-level={d.Level}>
+								</div>
+							}
+						</div>
+					</div>
+				</div>
+			}
+		</div>
+	</div>
+}

@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/cfg"
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/db"
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/log"
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/service"
-	"github.com/dan-nicholls/danlovesto.run/backend/internal/api"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/cfg"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/db"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/log"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/service"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/server"
 )
 
 func main() {
@@ -22,7 +22,7 @@ func main() {
 	c := cfg.Load("config.json")
 	database, err := db.NewSqlStore(c.DatabaseURL)
 	if err != nil {
-		stdlog.Fatalf("%w", err)
+		stdlog.Fatalf("%v", err)
 	}
 
 	as := db.NewActivityStore(database)
