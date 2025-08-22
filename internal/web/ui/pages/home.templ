@@ -15,12 +15,12 @@ templ Home(info contracts.Info, stats contracts.Summary, hmData contracts.Heatma
 }
 
 templ homeBody(info contracts.Info, stats contracts.Summary, hmData contracts.HeatmapData) {
-	<main>
+	<main class="page-container">
 		<h1>danlovesto.run</h1>
 		<h1>Welcome!</h1>
-		<p>Version: { info.Version } - Uptime: { info.Uptime }</p>
 		@SummaryComponent(stats)
 		@DailyLog(hmData)
+		<p>Version: { info.Version } - Uptime: { info.Uptime }</p>
 	</main>
 }
 
