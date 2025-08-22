@@ -44,6 +44,12 @@ sub {
 	text-transform: lower;	
 }
 
+.flexcol {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
 body {
   background: var(--color-bg);
   color: var(--color-text);
@@ -55,7 +61,7 @@ body {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	padding: 1.5em 1em;
+	padding: 1.5em 1em 1em 1em;
 }
 
 @media (min-width: 768px) {
@@ -80,8 +86,20 @@ body {
 }
 
 .title {
-	margin-top: 0px;
+	margin: 2px 0px;
 	font-size: 3em;
+}
+
+h2 {
+	margin: 2px 0px;
+	font-size: 2em;
+}
+
+.section {
+	width: 100%;
+	margin: 0px 0px;
+	padding-top: 0px;
+	padding-bottom: 20px;
 }
 
 .summary-container {
@@ -157,6 +175,7 @@ body {
 	line-height: 12px;
 	text-transform: uppercase;
 	font-family: "Fira Code", monospace;
+	padding-top: 6px;
 }
 
 .y-labels {
@@ -169,6 +188,7 @@ body {
 	white-space: nowrap;
 	grid-area: y;
 	font-family: "Fira Code", monospace;
+	padding-right: 6px;
 }
 
 .label {
@@ -259,4 +279,17 @@ body {
   font-optical-sizing: auto;
   font-weight: <weight>;
   font-style: normal;
+}
+
+footer {
+	display: flex;
+	width: 100%;
+	padding-top: 20px;
+	justify-content: center;
+	margin-bottom: 0px;
+	padding-bottom: 0px;
+}
+footer > *{
+	margin-bottom: 0px;
+	padding-bottom: 0px;
 }

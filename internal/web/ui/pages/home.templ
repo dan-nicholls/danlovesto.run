@@ -9,20 +9,26 @@ import (
 )
 
 templ Home(info contracts.Info, stats contracts.Summary, hmData contracts.HeatmapData) {
-	@layouts.Base("danlovesto.run - Home") {
+	@layouts.Base("danlovesto.run") {
 		@homeBody(info, stats, hmData)
 	}
 }
 
 templ homeBody(info contracts.Info, stats contracts.Summary, hmData contracts.HeatmapData) {
 	<main class="page-container">
+		@HeadingComponent()
+		@SummaryComponent(stats)
+		@DailyLog(hmData)
+		@FooterComponent(info)
+	</main>
+}
+
+templ HeadingComponent() {
+	<div class="section flexcol">
 		<img class="logo" src="/static/img/icon.svg" />
 		<h1 class="title">danlovesto.run</h1>
 		<sub>I like programming just as much as i do running</sub>
-		@SummaryComponent(stats)
-		@DailyLog(hmData)
-		<p>Version: { info.Version } - Uptime: { info.Uptime }</p>
-	</main>
+	</div>
 }
 
 func commaInt(n int) string {
@@ -38,25 +44,33 @@ func commaInt(n int) string {
 }
 
 templ SummaryComponent(stats contracts.Summary) {
-	<h2>Summary</h2>
-	<div class="summary-container">
-		<div class="summary-stat">
-			<div>{ stats.TotalRuns }</div>
-			<div>runs</div>
-		</div>
-		<div class="summary-stat">
-			<div>{ commaInt(int(stats.TotalDistance)) }</div>
-			<div>kms</div>
-		</div>
-		<div class="summary-stat">
-			<div>{ stats.TotalHours }</div>
-			<div>hours</div>
-		</div>
-		<div class="summary-stat">
-			<div>{ commaInt(int(stats.TotalClimbed )) }</div>
-			<div>m climbed</div>
+	<div class="section flexcol">
+		<h2>Summary</h2>
+		<div class="summary-container">
+			<div class="summary-stat">
+				<div>{ stats.TotalRuns }</div>
+				<div>runs</div>
+			</div>
+			<div class="summary-stat">
+				<div>{ commaInt(int(stats.TotalDistance)) }</div>
+				<div>kms</div>
+			</div>
+			<div class="summary-stat">
+				<div>{ stats.TotalHours }</div>
+				<div>hours</div>
+			</div>
+			<div class="summary-stat">
+				<div>{ commaInt(int(stats.TotalClimbed )) }</div>
+				<div>m climbed</div>
+			</div>
 		</div>
 	</div>
+}
+
+templ FooterComponent(i contracts.Info) {
+	<footer>
+		<sub>Version: { i.Version } - Uptime: { i.Uptime }</sub>
+	</footer>
 }
 
 func getDisabledCells(dateStr string) int {
@@ -82,7 +96,7 @@ func intensityGamma(dist, max, gamma float64) float64 {
 templ DailyLog(hd contracts.HeatmapData) {
 	<div class="heatmap-container">
 		<h2>Daily Log</h2>
-		<p>Every day counts.</p>
+		<sub>Every day counts.</sub>
 		<div>
 			for _, y := range hd.Years {
 				<div class="heatmap-section">
