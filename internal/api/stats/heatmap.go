@@ -104,6 +104,10 @@ func GetLabelsFromEdges(edges []float64) []string {
 	return res
 }
 
+func ToKm(d float64) float64 {
+	return d / 1000
+}
+
 func CreateHeatMap(acts []*contracts.Activity, p contracts.HeatMapParams) (contracts.HeatmapData, error) {
 	// Calculate firstActive
 	var minYear int
@@ -111,7 +115,7 @@ func CreateHeatMap(acts []*contracts.Activity, p contracts.HeatMapParams) (contr
 	for _, a := range acts {
 		d := a.StartDateLocal.Format("2006-01-02")
 		y := a.StartDateLocal.Year()
-		daily[d] += a.Distance
+		daily[d] += ToKm(a.Distance)
 		if minYear == 0 || minYear > y {
 			minYear = y
 		}

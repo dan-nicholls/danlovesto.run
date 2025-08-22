@@ -109,7 +109,7 @@ templ DailyLog(hd contracts.HeatmapData) {
 									style={"--g:" + fmt.Sprintf("%.6f", intensityGamma(d.Distance, hd.Buckets.Domain[1], 0.75 ))}
 
 									data-date={d.Date}
-									data-distance={d.Distance}>
+									data-distance={fmt.Sprintf("%.2f", d.Distance)}>
 								</div>
 							}
 						</div>
