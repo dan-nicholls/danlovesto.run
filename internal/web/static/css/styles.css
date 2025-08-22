@@ -37,6 +37,13 @@ html {
 	font-family: "Manrope", Arial;
 }
 
+sub {
+	font-family: "Fira Code", monospace;
+	padding-bottom: 10px;
+	gap: 10px;
+	text-transform: lower;	
+}
+
 body {
   background: var(--color-bg);
   color: var(--color-text);
@@ -48,7 +55,7 @@ body {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	padding: 0 1em;
+	padding: 1.5em 1em;
 }
 
 @media (min-width: 768px) {
@@ -67,7 +74,46 @@ body {
 	}
 }
 
+.logo {
+	height: 10em;
+	width: 10em;
+}
+
+.title {
+	margin-top: 0px;
+	font-size: 3em;
+}
+
+.summary-container {
+	width: 90%;
+	display: flex;
+	flex-direction: row;
+	justify-content: space-evenly;
+}
+
+.summary-stat {
+	display: flex;
+	flex-direction: column;
+	padding: 20px 10px;
+	align-items: center;
+}
+.summary-stat > div:first-child {
+	font-size: 36px;
+	font-weight: bold;
+}
+
+.summary-stat > div:last-child {
+	font-size: 16px;
+	font-weight: 400;
+}
+
 .heatmap-container {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.heatmap-container > div:first-of-type {
 	width: max-content;
 	display: flex;
 	flex-direction: column-reverse;
@@ -87,7 +133,7 @@ body {
 	gap: 10px;
 }
 
-.title {
+.heatmap-title {
 	flex-grow: 1;
 }
 
@@ -150,7 +196,7 @@ body {
 	
 	/* Dynamically set color */
 	--l-min: 10%;
-	--l-max: 85%;
+	--l-max: 88%;
 	background: hsl(40 66% calc(var(--l-max) - (var(--l-max) - var(--l-min)) * var(--g)));
 }
 

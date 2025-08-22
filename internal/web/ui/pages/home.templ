@@ -16,31 +16,44 @@ templ Home(info contracts.Info, stats contracts.Summary, hmData contracts.Heatma
 
 templ homeBody(info contracts.Info, stats contracts.Summary, hmData contracts.HeatmapData) {
 	<main class="page-container">
-		<h1>danlovesto.run</h1>
-		<h1>Welcome!</h1>
+		<img class="logo" src="/static/img/icon.svg" />
+		<h1 class="title">danlovesto.run</h1>
+		<sub>I like programming just as much as i do running</sub>
 		@SummaryComponent(stats)
 		@DailyLog(hmData)
 		<p>Version: { info.Version } - Uptime: { info.Uptime }</p>
 	</main>
 }
 
+func commaInt(n int) string {
+    s := fmt.Sprintf("%d", n)
+    out := ""
+    for i, c := range s {
+        if i > 0 && (len(s)-i)%3 == 0 {
+            out += ","
+        }
+        out += string(c)
+    }
+    return out
+}
+
 templ SummaryComponent(stats contracts.Summary) {
 	<h2>Summary</h2>
-	<div>
-		<div>
+	<div class="summary-container">
+		<div class="summary-stat">
 			<div>{ stats.TotalRuns }</div>
 			<div>runs</div>
 		</div>
-		<div>
-			<div>{ stats.TotalDistance }</div>
+		<div class="summary-stat">
+			<div>{ commaInt(int(stats.TotalDistance)) }</div>
 			<div>kms</div>
 		</div>
-		<div>
+		<div class="summary-stat">
 			<div>{ stats.TotalHours }</div>
 			<div>hours</div>
 		</div>
-		<div>
-			<div>{ stats.TotalClimbed }</div>
+		<div class="summary-stat">
+			<div>{ commaInt(int(stats.TotalClimbed )) }</div>
 			<div>m climbed</div>
 		</div>
 	</div>
@@ -67,14 +80,14 @@ func intensityGamma(dist, max, gamma float64) float64 {
 }
 
 templ DailyLog(hd contracts.HeatmapData) {
-	<div>
+	<div class="heatmap-container">
 		<h2>Daily Log</h2>
-		<p>heatmap data to make sure im doing my time</p>
-		<div class="heatmap-container">
+		<p>Every day counts.</p>
+		<div>
 			for _, y := range hd.Years {
 				<div class="heatmap-section">
 					<div class="heatmap-header">
-						<div class="title">{ y.Year }</div>
+						<div class="heatmap-title">{ y.Year }</div>
 						<div>{ fmt.Sprintf("%.0f", y.Stats.TotalDistance) } km</div>
 						<div>({ fmt.Sprintf("%.2f", y.Stats.AvgDistance) } km/day)</div>
 					</div>
