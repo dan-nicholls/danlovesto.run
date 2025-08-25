@@ -19,6 +19,7 @@ var (
     activitiesFile string
     pbFile      string
     distance    string
+	duration 	string
     activityID  int64
 )
 
@@ -36,6 +37,7 @@ func init() {
     // pbs
     pbCmd.Flags().StringVar(&pbFile, "file", "", "path to JSON file containing PB entries (distance and activity_id)")
     pbCmd.Flags().StringVar(&distance, "distance", "", "distance label (e.g. 5km, 1km)")
+	pbCmd.Flags().StringVar(&duration, "duration", "", "duration for given section (e.g. 1:30:30)")
     pbCmd.Flags().Int64Var(&activityID, "id", 0, "activity ID to set for PB")
     rootCmd.AddCommand(pbCmd)
 }
@@ -113,6 +115,7 @@ var pbCmd = &cobra.Command{
             }
             var entries []struct {
                 Distance   string `json:"distance"`
+				Duration   string `json:"duration"`
                 ActivityID int64  `json:"activity_id"`
             }
             if err := json.Unmarshal(data, &entries); err != nil {
@@ -120,9 +123,9 @@ var pbCmd = &cobra.Command{
             }
             ps := db.NewPBStore(d)
             for _, e := range entries {
-				log.Printf("Attempting to store %s - %v", e.Distance, e.ActivityID)
+				log.Printf("Attempting to store %s - %s - %v", e.Distance, e.Duration, e.ActivityID)
                 nid := sql.NullInt64{Int64: e.ActivityID, Valid: true}
-                if err := ps.SetPB(e.Distance, nid.Int64); err != nil {
+                if err := ps.SetPB(e.Distance, e.Duration, nid.Int64); err != nil {
                     log.Printf("warning: failed to set PB %s: %v", e.Distance, err)
                 }
             }
@@ -131,12 +134,12 @@ var pbCmd = &cobra.Command{
         }
 
         // when using manual flag mode
-        if distance == "" {
-            log.Fatal("either --file or --distance must be provided")
+        if distance == "" || duration == "" {
+            log.Fatal("either --file or --distance and --duration must be provided")
         }
         ps := db.NewPBStore(d)
         nid := sql.NullInt64{Int64: activityID, Valid: true}
-        if err := ps.SetPB(distance, nid.Int64); err != nil {
+		if err := ps.SetPB(distance, duration, nid.Int64); err != nil {
             log.Fatalf("failed to set PB: %v", err)
         }
         fmt.Printf("Set PB for %s to activity %d\n", distance, activityID)
