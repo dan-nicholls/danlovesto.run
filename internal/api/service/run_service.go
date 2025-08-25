@@ -39,13 +39,13 @@ func (r *RunService) ListActivities() ([]*contracts.Activity, error) {
 	return activities, nil
 }
 
-func (s *RunService) ListDetailedPBs() ([]*contracts.DetailedPersonalBest, error) {
+func (s *RunService) ListDetailedPBs() ([]contracts.DetailedPersonalBest, error) {
 	pbs, err := s.pbs.GetAllPBs()
 	if err != nil {
 		return nil, fmt.Errorf("service: list detailed pbs: %w", err)
 	}
 
-	var detailedPBs []*contracts.DetailedPersonalBest
+	var detailedPBs []contracts.DetailedPersonalBest
 	for _, pb := range pbs {
 		if !pb.ActivityID.Valid {
 			continue
@@ -58,10 +58,11 @@ func (s *RunService) ListDetailedPBs() ([]*contracts.DetailedPersonalBest, error
 
 		dpb := contracts.DetailedPersonalBest{
 			Distance: pb.Distance,
+			Duration: pb.Duration,
 			Activity: a,
 			UpdatedAt: pb.UpdatedAt,
 		}
-		detailedPBs = append(detailedPBs, &dpb)
+		detailedPBs = append(detailedPBs, dpb)
 	}
 	return detailedPBs, nil
 }

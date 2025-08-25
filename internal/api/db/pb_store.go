@@ -7,7 +7,7 @@ import (
 )
 
 type PBRepo interface {
-	SetPB(distance string, activityID int64) error
+	SetPB(distance, duration string, activityID int64) error
 	GetAllPBs() ([]*contracts.PersonalBest, error)
 }
 
@@ -19,19 +19,19 @@ func NewPBStore(db *Store) *PBStore {
 	return &PBStore{DB: db}
 }
 
-func (s *PBStore) SetPB(distance string, activityID int64) error {
+func (s *PBStore) SetPB(distance string, duration string, activityID int64) error {
 	_, err := s.DB.Conn.Exec(`
 		UPDATE personal_bests
-		SET activity_id = ?,  updated_at = ?
+		SET duration = ?, activity_id = ?,  updated_at = ?
 		WHERE distance = ?
-	`, activityID, time.Now(), distance)
+	`, duration, activityID, time.Now(), distance)
 
 	return err
 }
 
 func (s *PBStore) GetAllPBs() ([]*contracts.PersonalBest, error) {
 	rows, err := s.DB.Conn.Query(`
-		SELECT distance, activity_id, updated_at
+		SELECT distance, duration, activity_id, updated_at
 		FROM personal_bests
 	`)
 	if err != nil {
@@ -42,7 +42,7 @@ func (s *PBStore) GetAllPBs() ([]*contracts.PersonalBest, error) {
 	var list []*contracts.PersonalBest
 	for rows.Next() {
 		var pb contracts.PersonalBest
-		if err := rows.Scan(&pb.Distance, &pb.ActivityID, &pb.UpdatedAt); err != nil {
+		if err := rows.Scan(&pb.Distance, &pb.Duration, &pb.ActivityID, &pb.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan pb: %w", err)
 		}
 		list = append(list, &pb)

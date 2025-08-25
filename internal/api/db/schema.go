@@ -41,12 +41,13 @@ const (
 	personalBestsTable = `
     CREATE TABLE IF NOT EXISTS personal_bests (
       distance     TEXT        PRIMARY KEY,
+	  duration	   TEXT			NOT NULL DEFAULT '00:00:00',
       activity_id  INTEGER     REFERENCES activities(id),
       updated_at   DATETIME    DEFAULT CURRENT_TIMESTAMP
   	);`
 
 	seedPBs = `
 	INSERT OR IGNORE INTO personal_bests(distance) VALUES
-	('1km'), ('5km'), ('10km'), ('Half-Marathon'), ('Marathon');
+	('1km'), ('5km'), ('10km'), ('Half-Marathon');
 	`
 )

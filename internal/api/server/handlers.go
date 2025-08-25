@@ -99,11 +99,7 @@ func handleStatSummary(logger log.Logger, rs *service.RunService) http.Handler {
 
 func handlePersonalBests(logger log.Logger, rs *service.RunService) http.Handler {
 	type Response struct {
-		OneKm *contracts.Activity `json:"1km"`
-		FiveKm *contracts.Activity `json:"5km"`
-		TenKm *contracts.Activity `json:"10km"`
-		HalfMarathon *contracts.Activity `json:"Half-Marathon"`
-		Marathon *contracts.Activity `json:"Marathon"`
+		Data []contracts.DetailedPersonalBest `json:"data"`
 	}
 
 	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
@@ -115,25 +111,10 @@ func handlePersonalBests(logger log.Logger, rs *service.RunService) http.Handler
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
-		res := Response{}
-		for _, pb := range pbs {
-			logger.Infof("%v", pb) 
-			switch pb.Distance {
-			case "1km":
-				res.OneKm = pb.Activity
-			case "5km":
-				res.FiveKm = pb.Activity
-			case "10km":
-				res.TenKm = pb.Activity
-			case "Half-Marathon":
-				res.HalfMarathon = pb.Activity
-			case "Mararthon":
-				res.Marathon = pb.Activity
-			default:
-				logger.Errorf("Invalid PB Found: %s", pb.Distance)
-			}
-		}
-		
+
+
+		res := Response{ Data: pbs }
+
 		if err := encode(w, r, http.StatusOK, res); err != nil {
 			logger.Errorf("Failed to encode personal best response: %w", err)
 			http.Error(w, "internal server error", http.StatusInternalServerError)
