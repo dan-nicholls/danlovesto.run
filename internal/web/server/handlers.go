@@ -31,7 +31,13 @@ func (s *Server) handleHome() http.Handler {
 			s.handleError(ctx, w, http.StatusInternalServerError, fmt.Errorf("fetch daily logs: %w", err))		
 			return
 		}
-		pages.Home(info, summary, dl).Render(ctx, w)
+
+		pbs, err := s.api.PersonalBests(ctx)
+		if err != nil {
+			s.handleError(ctx, w, http.StatusInternalServerError, fmt.Errorf("fetch pbs: %w", err))
+			return
+		}
+		pages.Home(info, summary, dl, pbs).Render(ctx, w)
 	})
 }
 

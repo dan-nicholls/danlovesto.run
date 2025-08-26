@@ -39,3 +39,16 @@ func (s *StatsService) DailyLogs(ctx context.Context) (contracts.HeatmapData, er
 	}
 	return hd, nil 
 }
+
+func (s *StatsService) PersonalBests(ctx context.Context) ([]contracts.DetailedPersonalBest, error) {
+	r := struct{
+		Data []contracts.DetailedPersonalBest
+	}{}
+
+	err := s.c.Get("/runs/personal-bests", &r)
+	if err != nil {
+		return []contracts.DetailedPersonalBest{}, err
+	}
+	
+	return r.Data, nil
+}
