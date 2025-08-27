@@ -37,7 +37,7 @@ func (s *Server) handleHome() http.Handler {
 			s.handleError(ctx, w, http.StatusInternalServerError, fmt.Errorf("fetch pbs: %w", err))
 			return
 		}
-		pages.Home(info, summary, dl, pbs).Render(ctx, w)
+		pages.Home(info, summary, dl, pbs, s.mapToken).Render(ctx, w)
 	})
 }
 

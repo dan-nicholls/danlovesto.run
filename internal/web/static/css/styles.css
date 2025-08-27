@@ -41,14 +41,14 @@ html {
 
 sub {
 	font-family: "Fira Code", monospace;
-	padding-bottom: 10px;
+	padding-bottom: 20px;
 	gap: 10px;
 	text-transform: lower;	
 }
 
 .subtitle {
 	font-family: "Fira Code", monospace;
-	font-size: 16px;
+	font-size: 12px;
 	font-weight: 400;
 }
 
@@ -306,12 +306,9 @@ footer > *{
 /* Personal Bests */
 .pb-grid { 
 	width: 100%;
-	display:grid;
-	grid-template-columns: repeat(2, 400px); 
-	gap:1rem;
-	align-items:start;
-	grid-template-areas:
-		"list content"
+	display:flex;
+	height: 350px;
+	gap: 0.8em;
 }
 
 .pb-list { 
@@ -320,6 +317,7 @@ footer > *{
 	flex-direction:column;
 	top:1rem;
 	grid-area: list;
+	width: 40%
 }
 
 .pb-link {
@@ -372,6 +370,7 @@ footer > *{
 .pb-list-item > span:nth-child(1) {
 	width: 33.33%;
 	text-align: start;
+	font-size: 0.9em;
 }
 
 .pb-list-item > span:nth-child(2) {
@@ -390,16 +389,24 @@ footer > *{
 
 .pb-content { 
 	min-width: 0;
-	min-height: 300px;
+	min-height: 320px;
 	position: relative;
 	grid-area: content;
+	width: 30%;
 }
 
-.pb-panel {
-	position:absolute;
-	inset: 0;
-	overflow: auto;
+.pb-map {
+	width: 30%;
 }
+.pb-panel {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	grid-template-columns: 1fr;
+	grid-template-rows: auto 1fr;
+	gap: .75rem;
+}
+
 .pb-details-title {
 	font-weight:600;
 	text-align: center;
@@ -440,4 +447,21 @@ footer > *{
 	font-size: 0.9em;
 	font-family: "Fira Code", monospace;
 
+}
+
+.empty-map {
+	height: 300px;
+	width: 300px;
+	display: flex;
+	border: 1px solid var(--mid-neutral);
+	text-align: center;
+	justify-content: center;
+}
+
+.map {
+	border: 1px solid var(--mid-neutral);
+}
+
+.empty-map>span {
+	margin: auto;
 }

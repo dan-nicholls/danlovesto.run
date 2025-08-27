@@ -8,19 +8,20 @@ import (
 	"github.com/dan-nicholls/danlovesto.run/internal/web/ui/layouts"
 	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
 	"strings"
+	"net/url"
 )
 
-templ Home(info contracts.Info, stats contracts.Summary, hmData contracts.HeatmapData, pbData []contracts.DetailedPersonalBest) {
+templ Home(info contracts.Info, stats contracts.Summary, hmData contracts.HeatmapData, pbData []contracts.DetailedPersonalBest, mapToken string) {
 	@layouts.Base("danlovesto.run") {
-		@homeBody(info, stats, hmData, pbData)
+		@homeBody(info, stats, hmData, pbData, mapToken)
 	}
 }
 
-templ homeBody(info contracts.Info, stats contracts.Summary, hmData contracts.HeatmapData, pbData []contracts.DetailedPersonalBest) {
+templ homeBody(info contracts.Info, stats contracts.Summary, hmData contracts.HeatmapData, pbData []contracts.DetailedPersonalBest, mapToken string) {
 	<main class="page-container">
 		@HeadingComponent()
 		@SummaryComponent(stats)
-		@PBComponent(pbData)
+		@PBComponent(mapToken, pbData)
 		@DailyLog(hmData)
 		@FooterComponent(info)
 	</main>
@@ -102,7 +103,31 @@ func formatElapsedTime(s int) string {
 	return fmt.Sprintf("%d:%02d:%d", hours, mins, secs)
 }
 
-templ PBComponent(pbData []contracts.DetailedPersonalBest) {
+func mapboxUrl(token string, a contracts.Activity) string {
+	polyline := a.Map.SummaryPolyline
+	urlTemplate := "https://api.mapbox.com/styles/v1/%s/%s/static/%s/auto/%dx%d?padding=30&access_token=%s"
+	username := "mapbox"
+	style_id := "light-v11"
+	width := 300
+	height := 300
+	polytest := url.PathEscape(polyline)
+	overlay := fmt.Sprintf("path(%s)", polytest)
+
+	url := fmt.Sprintf(urlTemplate, username, style_id, overlay, width, height, token)
+	return url
+}
+
+templ MapComponent(mapToken string, a *contracts.Activity) {
+	if a.Map.SummaryPolyline == "" {
+		<div class="empty-map">
+			<span>No Map data found!</span>
+		</div>
+	} else {
+		<img class="map" src={ mapboxUrl(mapToken, *a) } />
+	}
+}
+
+templ PBComponent(mapToken string, pbData []contracts.DetailedPersonalBest) {
 	<div class="section flexcol">
 		<h2>Personal Bests</h2>
 		<sub>fastest runs over specific distances</sub>
@@ -136,17 +161,28 @@ templ PBComponent(pbData []contracts.DetailedPersonalBest) {
 						x-transition.opacity.duration.150ms
 						x-cloak
 						x-show={ "active === " + strconv.Itoa(i) }>
-						<div class="pb-details-mini">
-							<span class="pb-details-mini-element">{ pb.Activity.ID }</span>
-							<span class="pb-details-mini-element">{ pb.Activity.StartDateLocal.Format("02 Jan 2006") }</span>
+						<div>
+							<div class="pb-details-mini">
+								<span class="pb-details-mini-element">{ pb.Activity.ID }</span>
+								<span class="pb-details-mini-element">{ pb.Activity.StartDateLocal.Format("02 Jan 2006") }</span>
+							</div>
+							<h3 class="pb-details-title">{ pb.Activity.Name }</h3>
+							<div class="pb-stat-container">
+								@PBStatComponent(mToKmString(pb.Activity.Distance), "kilometers")
+								@PBStatComponent(formatElapsedTime(pb.Activity.ElapsedTime), "duration")
+								@PBStatComponent(fmt.Sprintf("%.2f", pb.Activity.AverageSpeed), "per km")
+								@PBStatComponent(pb.Activity.TotalElevationGain, "m climbed")
+							</div>
 						</div>
-						<h3 class="pb-details-title">{ pb.Activity.Name }</h3>
-						<div class="pb-stat-container">
-							@PBStatComponent(mToKmString(pb.Activity.Distance), "kilometers")
-							@PBStatComponent(formatElapsedTime(pb.Activity.ElapsedTime), "duration")
-							@PBStatComponent(pb.Activity.AverageSpeed, "per km")
-							@PBStatComponent(pb.Activity.TotalElevationGain, "m climbed")
-						</div>
+					</div>
+				}
+			</div>
+			<div class="pb-map">
+				for i, pb := range pbData {
+					<div
+						x-cloak
+						x-show={ "active === "+ strconv.Itoa(i) }>
+						@MapComponent(mapToken, pb.Activity)
 					</div>
 				}
 			</div>

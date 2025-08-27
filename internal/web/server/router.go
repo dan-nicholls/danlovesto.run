@@ -10,14 +10,16 @@ import (
 type Server struct {
 	r *http.ServeMux
 	api *api.StatsService
+	mapToken string
 }
 
-func New(api *api.StatsService) *Server {
+func New(api *api.StatsService, token string) *Server {
 	r := http.NewServeMux()
 
 	srv := &Server{
 		r: r,
 		api: api,
+		mapToken: token,
 	}
 
 	// Setup Routes

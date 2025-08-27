@@ -21,9 +21,11 @@ func main() {
 		port = "3001"
 	}
 
+	mapToken := os.Getenv("MAP_TOKEN")
+
 	httpClient := api.NewClient(apiUrl)
 	ss := api.NewStatsService(httpClient)
-	srv := server.New(ss)
+	srv := server.New(ss, mapToken)
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("Listening on %s (API=%s)\n", port, apiUrl)
