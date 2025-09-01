@@ -44,7 +44,29 @@ func decode[T any](r *http.Request) (T, error) {
 	return v, nil
 }
 
-func WebhookVerifyHandler(expectedVerifyToken string, sink chan<- EventObject) http.Handler {
+func WebhookHandler(expectedVerifyToken string, sink chan<- EventObject) http.Handler {
+	m := map[string]http.Handler{
+		http.MethodGet: WebhookVerifyHandler(expectedVerifyToken),
+		http.MethodPost: WebhookEventHandler(sink),
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if h, ok := m[r.Method]; ok {
+			h.ServeHTTP(w, r)
+			return
+		}
+		w.Header().Set("Allow", "GET, POST")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	})
+}
+
+func WebhookVerifyHandler(expectedVerifyToken string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%v - %v %v\n", r.Host, r.Method, r.URL.Path)
+	})
+}
+
+func WebhookEventHandler(sink chan<- EventObject) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%v - %v\n", r.Host, r.URL.Path)
 		event, err := decode[EventObject](r)
@@ -70,6 +92,12 @@ func PrintEventsWorker(ctx context.Context, in <-chan EventObject) {
 
 func readyHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.Header().Set("Allow", "GET")
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
 		log.Printf("%v - %v\n", r.Host, r.URL.Path)
 		fmt.Fprintf(w, "hello\n")
 	})
@@ -79,8 +107,8 @@ func StartHTTP(ctx context.Context, listenAddr, verifyToken string, sink chan<- 
 	// Create Server
 	// TODO - Handlers for Health & Ready
 	mux := http.NewServeMux()
-	mux.Handle("/strava/webhook", WebhookVerifyHandler(verifyToken, sink))
-	mux.Handle("/ready", homeHandler())
+	mux.Handle("/strava/webhook", WebhookHandler(verifyToken, sink))
+	mux.Handle("/ready", readyHandler())
 
 	// TODO - Add logging middleware
 	srv := &http.Server {
