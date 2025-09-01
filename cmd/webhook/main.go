@@ -68,7 +68,7 @@ func PrintEventsWorker(ctx context.Context, in <-chan EventObject) {
 	}
 }
 
-func homeHandler() http.Handler {
+func readyHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%v - %v\n", r.Host, r.URL.Path)
 		fmt.Fprintf(w, "hello\n")
