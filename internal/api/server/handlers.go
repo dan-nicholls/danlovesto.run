@@ -8,7 +8,7 @@ import (
 	"time"
 	"strconv"
 
-	"github.com/dan-nicholls/danlovesto.run/internal/api/cfg"
+	"github.com/dan-nicholls/danlovesto.run/internal/conf"
 	"github.com/dan-nicholls/danlovesto.run/internal/api/log"
 	"github.com/dan-nicholls/danlovesto.run/internal/api/service"
 	"github.com/dan-nicholls/danlovesto.run/internal/api/stats"
@@ -45,7 +45,7 @@ func handleHealthCheck(logger log.Logger) http.Handler {
 	})
 }
 
-func handleInfo(logger log.Logger, cfg *cfg.Config, start time.Time) http.Handler {
+func handleInfo(logger log.Logger, conf *conf.Config, v string, start time.Time) http.Handler {
 	type response struct {
 		Version string `json:"version"`	
 		Uptime string `json:"uptime"`
@@ -55,7 +55,7 @@ func handleInfo(logger log.Logger, cfg *cfg.Config, start time.Time) http.Handle
 		logger.Infof("%s - %s - Handling Info Endpoint", r.Method, r.URL.Path)
 		uptime := time.Since(start).Truncate(time.Second).String()
 		res := response{
-			Version: cfg.Version,
+			Version: v,
 			Uptime: uptime,
 		}
 

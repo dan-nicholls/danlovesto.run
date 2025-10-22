@@ -3,32 +3,28 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 	"net/http"
-	
-	"github.com/dan-nicholls/danlovesto.run/internal/web/server"
+
 	"github.com/dan-nicholls/danlovesto.run/internal/web/apiclient"
+	"github.com/dan-nicholls/danlovesto.run/internal/web/server"
+	"github.com/dan-nicholls/danlovesto.run/internal/conf"
 )
 
+
 func main() {
-	fmt.Println("Hello World!")
-	apiUrl := os.Getenv("API_URL")
-	if apiUrl == "" {
-		apiUrl = "http://localhost:3000/api/v1"
-	}
-	port := os.Getenv("UI_PORT")
-	if port == "" {
-		port = "3001"
+	fmt.Println("danlovesto.run UI Service")
+
+	conf, err := conf.LoadConfig()
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	mapToken := os.Getenv("MAP_TOKEN")
-
-	httpClient := api.NewClient(apiUrl)
+	httpClient := api.NewClient(conf.WebApiUrl)
 	ss := api.NewStatsService(httpClient)
-	srv := server.New(ss, mapToken)
+	srv := server.New(ss, conf.WebMapToken)
 
-	addr := fmt.Sprintf(":%s", port)
-	log.Printf("Listening on %s (API=%s)\n", port, apiUrl)
+	addr := fmt.Sprintf(":%d", conf.WebPort)
+	log.Printf("Listening on %d (API=%s)\n", conf.WebPort, conf.WebApiUrl)
 	if err := http.ListenAndServe(addr, srv.Router()); err != nil {
 		log.Fatal(err)
 	}

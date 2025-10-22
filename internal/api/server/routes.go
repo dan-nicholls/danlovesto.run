@@ -4,14 +4,14 @@ import (
 	"time"
 	"net/http"
 
-	"github.com/dan-nicholls/danlovesto.run/internal/api/cfg"
+	"github.com/dan-nicholls/danlovesto.run/internal/conf"
 	"github.com/dan-nicholls/danlovesto.run/internal/api/log"
 	"github.com/dan-nicholls/danlovesto.run/internal/api/service"
 )
 
-func AddRoutes(mux *http.ServeMux, log log.Logger, cfg *cfg.Config, startTime time.Time, rs *service.RunService) {
+func AddRoutes(mux *http.ServeMux, log log.Logger, conf *conf.Config, v string, startTime time.Time, rs *service.RunService) {
 	mux.Handle("/api/v1/health", handleHealthCheck(log)) 
-	mux.Handle("/api/v1/info", handleInfo(log, cfg, startTime)) 
+	mux.Handle("/api/v1/info", handleInfo(log, conf, v,  startTime)) 
 	mux.Handle("/api/v1/runs", handleUnderConstruction()) 
 	mux.Handle("/api/v1/runs/latest", handleUnderConstruction()) 
 	mux.Handle("/api/v1/runs/personal-bests", handlePersonalBests(log, rs)) 

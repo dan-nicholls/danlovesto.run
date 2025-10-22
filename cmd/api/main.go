@@ -7,11 +7,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/dan-nicholls/danlovesto.run/internal/api/cfg"
+	"github.com/dan-nicholls/danlovesto.run/internal/conf"
 	"github.com/dan-nicholls/danlovesto.run/internal/api/db"
 	"github.com/dan-nicholls/danlovesto.run/internal/api/log"
 	"github.com/dan-nicholls/danlovesto.run/internal/api/service"
 	"github.com/dan-nicholls/danlovesto.run/internal/api/server"
+	"github.com/dan-nicholls/danlovesto.run/internal/buildinfo"
 )
 
 func main() {
@@ -19,8 +20,12 @@ func main() {
 
 	logger.Infof("Starting Run Stats API\n")
 
-	c := cfg.Load("config.json")
-	database, err := db.NewSqlStore(c.DatabaseURL)
+	c, err := conf.LoadConfig()
+	if err != nil {
+		stdlog.Fatalf("%v", err)
+	}
+
+	database, err := db.NewSqlStore(c.ApiDatabaseUrl)
 	if err != nil {
 		stdlog.Fatalf("%v", err)
 	}
@@ -31,8 +36,9 @@ func main() {
 
 	router := http.NewServeMux()
 	start := time.Now()
-	api.AddRoutes(router, logger, &c, start, rs)
+	v := buildinfo.String()
+	api.AddRoutes(router, logger, c, v, start, rs)
 
-	logger.Infof("Listening on %d...", c.Port)
-	http.ListenAndServe(":"+strconv.Itoa(c.Port), router)
+	logger.Infof("Listening on %d...", c.ApiPort)
+	http.ListenAndServe(":"+strconv.Itoa(c.ApiPort), router)
 }
