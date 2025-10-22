@@ -118,13 +118,14 @@ func mapboxUrl(token string, a contracts.Activity) string {
 }
 
 templ MapComponent(mapToken string, a *contracts.Activity) {
-	if a.Map.SummaryPolyline == "" {
+	if a.Map.SummaryPolyline == "" || mapToken == "" {
 		<div class="empty-map">
 			<span>No Map data found!</span>
 		</div>
-	} else {
-		<img class="map" src={ mapboxUrl(mapToken, *a) } />
+		{{ return }}
 	}
+
+	<img class="map" src={ mapboxUrl(mapToken, *a) } />
 }
 
 templ PBComponent(mapToken string, pbData []contracts.DetailedPersonalBest) {

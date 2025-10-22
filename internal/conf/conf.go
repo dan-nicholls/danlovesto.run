@@ -45,7 +45,7 @@ func (conf *Config) Validate() error {
 
 	if conf.WebMapToken == "" {
 		// TODO - Make print warning 
-		log.Println("No MAP_TOKEN is set. Map data will not be available")
+		log.Println("No API_MAP_TOKEN is set. Map data will not be available")
 	}
 
 	if conf.ApiPort <= 0 || conf.WebPort > 65535 {
