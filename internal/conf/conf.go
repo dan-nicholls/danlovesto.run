@@ -2,20 +2,20 @@ package conf
 
 import (
 	"fmt"
-	"strings"
+	"log"
 	"os"
 	"strconv"
-	"log"
+	"strings"
 )
 
 type Config struct {
 	// Web/UI Configs
-	WebApiUrl string
-	WebPort int
+	WebApiUrl   string
+	WebPort     int
 	WebMapToken string
 
 	// API Configs
-	ApiPort int
+	ApiPort        int
 	ApiDatabaseUrl string
 
 	// Webhook Configs
@@ -44,7 +44,7 @@ func (conf *Config) Validate() error {
 	}
 
 	if conf.WebMapToken == "" {
-		// TODO - Make print warning 
+		// TODO - Make print warning
 		log.Println("No API_MAP_TOKEN is set. Map data will not be available")
 	}
 
@@ -66,7 +66,7 @@ func (conf *Config) setValues() error {
 	// After Load Envs
 	aStr := os.Getenv("WEB_API_URL")
 	if aStr != "" {
-		conf.WebApiUrl = aStr 
+		conf.WebApiUrl = aStr
 	}
 	pStr := os.Getenv("WEB_PORT")
 	if pStr != "" {
@@ -79,8 +79,8 @@ func (conf *Config) setValues() error {
 	}
 
 	pStr = os.Getenv("API_PORT")
-	if pStr != ""  {
-		p,_ := strconv.Atoi(pStr)
+	if pStr != "" {
+		p, _ := strconv.Atoi(pStr)
 		conf.ApiPort = p
 	}
 

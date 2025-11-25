@@ -1,8 +1,8 @@
 package db
 
 import (
-	"fmt"
 	"database/sql"
+	"fmt"
 	_ "modernc.org/sqlite"
 )
 
@@ -15,7 +15,7 @@ func NewSqlStore(dataSourceName string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open DB: %v", err)
 	}
-	if _,err := conn.Exec(`PRAGMA journal_mode=WAL;`); err != nil {
+	if _, err := conn.Exec(`PRAGMA journal_mode=WAL;`); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("set WAL mode failed: %w", err)
 	}
