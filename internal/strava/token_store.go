@@ -6,29 +6,28 @@ import (
 )
 
 type TokenStore interface {
-	Load(provider string) (Env, int64, error)
-	Save(provider string, e Env, expiresAt int64) error
+	Load(provider string) (Token, error)
+	Save(provider string, e Token) error
 }
 
 type SQLTokenStore struct {
 	DB *sql.DB
 }
 
-func (s *SQLTokenStore) Load(provider string) (Env, int64, error) {
-	var e Env
-	var exp int64
+func (s *SQLTokenStore) Load(provider string) (Token, error) {
+	var t Token
 
 	row := s.DB.QueryRow(`SELECT access_token, refresh_token, expires_at FROM oauth_tokens WHERE provider=?`, provider)
-	if err := row.Scan(&e.AccessToken, &e.RefreshToken, &exp); err != nil {
+	if err := row.Scan(&t.AccessToken, &t.RefreshToken, &t.ExpiresAt); err != nil {
 		if err == sql.ErrNoRows {
-			return e, 0, nil
+			return t, nil
 		}
-		return e, 0, fmt.Errorf("unable to scan rows in oauth_tokens table: %w", err)
+		return t, fmt.Errorf("unable to scan rows in oauth_tokens table: %w", err)
 	}
-	return e, exp, nil
+	return t, nil
 }
 
-func (s *SQLTokenStore) Save(provider string, e Env, exp int64) error {
+func (s *SQLTokenStore) Save(provider string, t Token) error {
 	_, err := s.DB.Exec(`
 		INSERT INTO oauth_tokens(provider, access_token, refresh_token, expires_at, updated_at)
 		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -37,6 +36,13 @@ func (s *SQLTokenStore) Save(provider string, e Env, exp int64) error {
 			refresh_token=excluded.refresh_token,
 			expires_at=excluded.expires_at,
 			updated_at=CURRENT_TIMESTAMP
-		`, provider, e.AccessToken, e.RefreshToken, exp)
+		`, provider, t.AccessToken, t.RefreshToken, t.ExpiresAt)
 	return err
+}
+
+func (s *SQLTokenStore) EnsureSchemas() error {
+	if _, err := s.DB.Exec(tokenTable); err != nil {
+		return err
+	}
+	return nil
 }
