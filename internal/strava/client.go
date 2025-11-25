@@ -18,22 +18,26 @@ const (
 )
 
 type Client struct {
+	config     StravaConfig
 	http       *http.Client
-	Tokens     Env
 	TokenStore TokenStore
 }
 
-type Env struct {
+type StravaConfig struct {
 	ClientID     string
 	ClientSecret string
-	AccessToken  string
-	RefreshToken string
 }
 
-func NewClient(t Env, tokenStore TokenStore) Client {
+type Token struct {
+	AccessToken  string
+	RefreshToken string
+	ExpiresAt    int64
+}
+
+func NewClient(cfg StravaConfig, tokenStore TokenStore) Client {
 	return Client{
+		config:     cfg,
 		http:       &http.Client{},
-		Tokens:     t,
 		TokenStore: tokenStore,
 	}
 }
@@ -44,6 +48,12 @@ func (c *Client) FetchAllActivities(after, before int64, maxPages int, verbose b
 	perPage := 200 // Strava max per page
 	page := 1
 	var all []map[string]any
+
+	tokens, err := c.TokenStore.Load("strava")
+
+	if err != nil {
+		return all, fmt.Errorf("unable to load token from store: %w", err)
+	}
 
 	for {
 		if maxPages > 0 && page > maxPages {
@@ -70,7 +80,7 @@ func (c *Client) FetchAllActivities(after, before int64, maxPages int, verbose b
 		}
 
 		req, _ := http.NewRequest("GET", u.String(), nil)
-		req.Header.Set("Authorization", "Bearer "+c.Tokens.AccessToken)
+		req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
 
 		resp, err := c.http.Do(req)
 		if err != nil {
@@ -89,7 +99,7 @@ func (c *Client) FetchAllActivities(after, before int64, maxPages int, verbose b
 			}
 
 			req, _ = http.NewRequest("GET", u.String(), nil)
-			req.Header.Set("Authorization", "Bearer "+c.Tokens.AccessToken)
+			req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
 			resp, err = c.http.Do(req)
 			if err != nil {
 				return nil, err
@@ -146,15 +156,19 @@ type TokenResponse struct {
 }
 
 func (c *Client) refreshAccessToken() error {
-	if c.Tokens.RefreshToken == "" {
+	tokens, err := c.TokenStore.Load("strava")
+	if err != nil {
+		return fmt.Errorf("unable to fetch from token store: %w", err)
+	}
+	if tokens.RefreshToken == "" {
 		return errors.New("REFRESH_TOKEN missing")
 	}
 
 	form := url.Values{}
-	form.Set("client_id", c.Tokens.ClientID)
-	form.Set("client_secret", c.Tokens.ClientSecret)
+	form.Set("client_id", c.config.ClientID)
+	form.Set("client_secret", c.config.ClientSecret)
 	form.Set("grant_type", "refresh_token")
-	form.Set("refresh_token", c.Tokens.RefreshToken) // ← correct field for refresh
+	form.Set("refresh_token", tokens.RefreshToken) // ← correct field for refresh
 
 	req, _ := http.NewRequest("POST", oauthTokenURL, strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -178,17 +192,12 @@ func (c *Client) refreshAccessToken() error {
 		return fmt.Errorf("invalid token response from Strava")
 	}
 
-	c.Tokens.AccessToken = tok.AccessToken
-	c.Tokens.RefreshToken = tok.RefreshToken
-
-	env := Env{
-		ClientID:     c.Tokens.ClientID,
-		ClientSecret: c.Tokens.ClientSecret,
+	newToken := Token{
 		AccessToken:  tok.AccessToken,
 		RefreshToken: tok.RefreshToken,
 	}
 
-	if err := c.TokenStore.Save("strava", env, tok.ExpiresAt); err != nil {
+	if err := c.TokenStore.Save("strava", newToken); err != nil {
 		return fmt.Errorf("failed to store token to store: %w", err)
 	}
 
