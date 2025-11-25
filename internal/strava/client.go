@@ -23,10 +23,10 @@ type Client struct {
 	TokenStore TokenStore
 }
 
-type StravaConfig struct {
-	ClientID     string
-	ClientSecret string
-}
+//	type StravaConfig struct {
+//		ClientID     string
+//		ClientSecret string
+//	}
 
 type Token struct {
 	AccessToken  string
