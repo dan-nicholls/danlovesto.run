@@ -242,3 +242,20 @@ func makeInClause(col string, vals []string) (string, []any) {
 	}
 	return fmt.Sprintf("%s IN (%s)", col, strings.Join(placeholders, ",")), args
 }
+
+func (s *ActivityStore) LatestActivityStart() (time.Time, error) {
+	query := `
+		SELECT id, start_date FROM activities ORDER BY start_date DESC LIMIT 1
+	`
+	row := s.DB.Conn.QueryRow(query)
+	var id int64
+	var t time.Time
+
+	if err := row.Scan(&id, &t); err != nil {
+		if err == sql.ErrNoRows {
+			return t, nil
+		}
+		return t, fmt.Errorf("scan latest activity time: %w", err)
+	}
+	return t, nil
+}
