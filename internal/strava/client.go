@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	//"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
+	"context"
+	"golang.org/x/oauth2"
 	"io"
 	"net/http"
 	"net/url"
@@ -23,11 +25,6 @@ type Client struct {
 	TokenStore TokenStore
 }
 
-//	type StravaConfig struct {
-//		ClientID     string
-//		ClientSecret string
-//	}
-
 type Token struct {
 	AccessToken  string
 	RefreshToken string
@@ -42,6 +39,28 @@ func NewClient(cfg StravaConfig, tokenStore TokenStore) Client {
 	}
 }
 
+func isExpired(exp int64) bool {
+	t := time.Unix(exp, 0)
+	return time.Now().After(t)
+}
+
+func (c *Client) ensureValidToken() error {
+	token, err := c.TokenStore.Load("strava")
+	if err != nil {
+		return fmt.Errorf("unable to load token from store: %w", err)
+	}
+
+	if token.RefreshToken == "" {
+		return c.runOAuth()
+	}
+
+	if token.AccessToken == "" || isExpired(token.ExpiresAt) {
+		return c.refreshAccessToken()
+	}
+
+	return nil
+}
+
 // fetchAllActivities paginates /athlete/activities and returns raw Strava JSON entries.
 // On 401 it refreshes once and retries; on 429 it waits briefly and retries.
 func (c *Client) FetchAllActivities(after, before int64, maxPages int, verbose bool) ([]map[string]any, error) {
@@ -49,8 +68,11 @@ func (c *Client) FetchAllActivities(after, before int64, maxPages int, verbose b
 	page := 1
 	var all []map[string]any
 
+	// Ensure Valid Token
+	if err := c.ensureValidToken(); err != nil {
+		return all, err
+	}
 	tokens, err := c.TokenStore.Load("strava")
-
 	if err != nil {
 		return all, fmt.Errorf("unable to load token from store: %w", err)
 	}
@@ -96,6 +118,11 @@ func (c *Client) FetchAllActivities(after, before int64, maxPages int, verbose b
 			err := c.refreshAccessToken()
 			if err != nil {
 				return nil, fmt.Errorf("refresh failed: %w", err)
+			}
+
+			tokens, err := c.TokenStore.Load("strava")
+			if err != nil {
+				return all, fmt.Errorf("unable to load token after refresh: %w", err)
 			}
 
 			req, _ = http.NewRequest("GET", u.String(), nil)
@@ -195,6 +222,7 @@ func (c *Client) refreshAccessToken() error {
 	newToken := Token{
 		AccessToken:  tok.AccessToken,
 		RefreshToken: tok.RefreshToken,
+		ExpiresAt:    tok.ExpiresAt,
 	}
 
 	if err := c.TokenStore.Save("strava", newToken); err != nil {
@@ -203,4 +231,90 @@ func (c *Client) refreshAccessToken() error {
 
 	fmt.Println("🔐 refreshed access token and updated")
 	return nil
+}
+
+func (c *Client) runOAuth() error {
+	oauthCfg := &oauth2.Config{
+		ClientID:     c.config.ClientID,
+		ClientSecret: c.config.ClientSecret,
+		RedirectURL:  c.config.RedirectURL,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  "https://www.strava.com/oauth/authorize",
+			TokenURL: "https://www.strava.com/oauth/token",
+		},
+		Scopes: []string{"read,activity:read_all"},
+	}
+
+	mux := http.NewServeMux()
+	done := make(chan error, 1)
+
+	// TODO - crypto/rand
+	state := fmt.Sprintf("st-%d", time.Now().UnixNano())
+
+	mux.HandleFunc("/auth/strava", func(w http.ResponseWriter, r *http.Request) {
+		url := oauthCfg.AuthCodeURL(state, oauth2.AccessTypeOffline)
+		http.Redirect(w, r, url, http.StatusFound)
+	})
+
+	mux.HandleFunc("/oauth/strava/callback", func(w http.ResponseWriter, r *http.Request) {
+		// validate state
+		if r.URL.Query().Get("state") != state {
+			http.Error(w, "invalid state", http.StatusBadRequest)
+			done <- fmt.Errorf("invalid state in callback")
+			return
+		}
+
+		code := r.URL.Query().Get("code")
+		if code == "" {
+			http.Error(w, "missing code", http.StatusBadRequest)
+			done <- fmt.Errorf("missing code in callback")
+			return
+		}
+
+		token, err := oauthCfg.Exchange(r.Context(), code)
+		if err != nil {
+			http.Error(w, "token exchange failed", http.StatusInternalServerError)
+			done <- fmt.Errorf("token exchange failed: %w", err)
+			return
+		}
+
+		// Save tokens into the token store
+		env := Token{
+			AccessToken:  token.AccessToken,
+			RefreshToken: token.RefreshToken,
+			ExpiresAt:    token.Expiry.Unix(),
+		}
+
+		if err := c.TokenStore.Save("strava", env); err != nil {
+			http.Error(w, "failed to save token", http.StatusInternalServerError)
+			done <- fmt.Errorf("failed to save token: %w", err)
+			return
+		}
+
+		fmt.Fprintln(w, "Strava authorization complete. You can close this window.")
+		done <- nil
+	})
+
+	srv := &http.Server{
+		Addr:    "127.0.0.1:8080",
+		Handler: mux,
+	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			done <- fmt.Errorf("http server error: %w", err)
+		}
+	}()
+
+	fmt.Println("Visit http://localhost:8080/auth/strava in browser to authorize Strava.")
+	fmt.Println("Waiting for authorization...")
+
+	// Wait for callback/cancellation
+	err := <-done
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = srv.Shutdown(shutdownCtx)
+
+	return err
 }
