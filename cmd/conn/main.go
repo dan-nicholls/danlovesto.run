@@ -1,10 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/db"
 	"github.com/dan-nicholls/danlovesto.run/internal/strava"
 	"github.com/joho/godotenv"
 	_ "modernc.org/sqlite"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 const (
@@ -29,7 +35,31 @@ type Token struct {
 	ExpiresAt    int64
 }
 
-func NewDB() {}
+func run(ctx context.Context, client strava.Client) error {
+	// 3. Loop every 15 mins
+	// TODO - make this into clientCfg
+	ticker := time.NewTicker(15 * time.Minute)
+	defer ticker.Stop()
+
+	// Initial Sync
+	if err := client.Sync(); err != nil {
+		return fmt.Errorf("failed to complete initial sync: %w", err)
+	}
+
+	// Sync Loop
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("closing stuff here")
+			return nil
+		case <-ticker.C:
+			fmt.Println("do work")
+			if err := client.Sync(); err != nil {
+				return fmt.Errorf("failed to sync: %w", err)
+			}
+		}
+	}
+}
 
 func main() {
 	err := godotenv.Load()
@@ -47,7 +77,7 @@ func main() {
 
 	cfg, err := strava.LoadStravaConfig()
 	if err != nil {
-		fmt.Println("Unable to load config: %v", err)
+		fmt.Printf("Unable to load config: %v", err)
 		return
 	}
 
@@ -62,20 +92,17 @@ func main() {
 	ts := strava.SQLTokenStore{
 		DB: conn,
 	}
+	ts.EnsureSchemas()
 
-	client := strava.NewClient(cfg, &ts)
+	as := db.NewActivityStore(&db.Store{Conn: conn})
 
-	acts, err := client.FetchAllActivities(0, 0, 0, false)
-	if err != nil {
-		fmt.Printf("Error fetching acts: %v", err)
-		return
+	client := strava.NewClient(cfg, &ts, *as)
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	if err := run(ctx, client); err != nil {
+		fmt.Printf("Error running app: %v", err)
+		os.Exit(1)
 	}
-
-	fmt.Printf("Acts: %+v", acts)
-	// 3. Loop every 15 mins
-	// 3a. Fetch Acitivites between last available activity
-
-	// 3b. Parse into []Activity and store in DB
-
-	// 4. Cancel ctx received -> Close
 }
