@@ -13,11 +13,6 @@ import (
 	"time"
 )
 
-const (
-	baseAPI       = "https://www.strava.com/api/v3"
-	oauthTokenURL = "https://www.strava.com/oauth/token"
-)
-
 type StravaConfig struct {
 	ClientID     string
 	ClientSecret string
@@ -36,7 +31,6 @@ type Token struct {
 }
 
 func run(ctx context.Context, client strava.Client) error {
-	// 3. Loop every 15 mins
 	// TODO - make this into clientCfg
 	ticker := time.NewTicker(15 * time.Minute)
 	defer ticker.Stop()
@@ -81,18 +75,15 @@ func main() {
 		return
 	}
 
-	// 1. Connect to DB
 	conn, err := db.NewSqlStore(dbCfg.Path)
 	if err != nil {
 		fmt.Printf("Unable to start DB: %v", err)
 		return
 	}
 
-	// 2. Get Valid Auth Token from DB
 	ts := strava.SQLTokenStore{
 		DB: conn,
 	}
-
 	as := db.NewActivityStore(conn)
 
 	client := strava.NewClient(cfg, &ts, *as)
