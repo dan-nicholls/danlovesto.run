@@ -48,7 +48,7 @@ type DBConfig struct {
 }
 
 func (conf *DBConfig) SetDefaults() {
-	conf.Path = "./data/strava.db"
+	conf.Path = "./data/data.db"
 }
 
 func (conf *DBConfig) SetValues() {
