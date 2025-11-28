@@ -39,5 +39,32 @@ func (s *Store) EnsureSchemas() error {
 	if _, err := s.Conn.Exec(seedPBs); err != nil {
 		return err
 	}
+	if _, err := s.Conn.Exec(tokenTable); err != nil {
+		return err
+	}
 	return nil
+}
+
+func (s *Store) GetState(key string) (string, bool, error) {
+	query := `SELECT value FROM app_state WHERE key=?`
+	row := s.Conn.QueryRow(query, key)
+	var v string
+
+	if err := row.Scan(&v); err != nil {
+		if err == sql.ErrNoRows {
+			return v, false, nil
+		}
+		return v, false, fmt.Errorf("scan state: %w", err)
+	}
+	return v, true, nil
+
+}
+
+func (s *Store) SetState(key, val string) error {
+	query := `
+	INSERT INTO app_state(key, value, updated_at)
+	VALUES (?, ?, CURRENT_TIMESTAMP)
+	`
+	_, err := s.Conn.Exec(query, key, val)
+	return err
 }

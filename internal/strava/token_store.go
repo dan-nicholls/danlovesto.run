@@ -3,6 +3,7 @@ package strava
 import (
 	"database/sql"
 	"fmt"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/db"
 )
 
 type TokenStore interface {
@@ -11,13 +12,13 @@ type TokenStore interface {
 }
 
 type SQLTokenStore struct {
-	DB *sql.DB
+	DB *db.Store
 }
 
 func (s *SQLTokenStore) Load(provider string) (Token, error) {
 	var t Token
 
-	row := s.DB.QueryRow(`SELECT access_token, refresh_token, expires_at FROM oauth_tokens WHERE provider=?`, provider)
+	row := s.DB.Conn.QueryRow(`SELECT access_token, refresh_token, expires_at FROM oauth_tokens WHERE provider=?`, provider)
 	if err := row.Scan(&t.AccessToken, &t.RefreshToken, &t.ExpiresAt); err != nil {
 		if err == sql.ErrNoRows {
 			return t, nil
@@ -28,7 +29,7 @@ func (s *SQLTokenStore) Load(provider string) (Token, error) {
 }
 
 func (s *SQLTokenStore) Save(provider string, t Token) error {
-	_, err := s.DB.Exec(`
+	_, err := s.DB.Conn.Exec(`
 		INSERT INTO oauth_tokens(provider, access_token, refresh_token, expires_at, updated_at)
 		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
 		ON CONFLICT (provider) DO UPDATE SET
@@ -38,11 +39,4 @@ func (s *SQLTokenStore) Save(provider string, t Token) error {
 			updated_at=CURRENT_TIMESTAMP
 		`, provider, t.AccessToken, t.RefreshToken, t.ExpiresAt)
 	return err
-}
-
-func (s *SQLTokenStore) EnsureSchemas() error {
-	if _, err := s.DB.Exec(tokenTable); err != nil {
-		return err
-	}
-	return nil
 }

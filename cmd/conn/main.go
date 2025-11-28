@@ -82,7 +82,7 @@ func main() {
 	}
 
 	// 1. Connect to DB
-	conn, err := strava.NewDB(dbCfg)
+	conn, err := db.NewSqlStore(dbCfg.Path)
 	if err != nil {
 		fmt.Printf("Unable to start DB: %v", err)
 		return
@@ -92,9 +92,8 @@ func main() {
 	ts := strava.SQLTokenStore{
 		DB: conn,
 	}
-	ts.EnsureSchemas()
 
-	as := db.NewActivityStore(&db.Store{Conn: conn})
+	as := db.NewActivityStore(conn)
 
 	client := strava.NewClient(cfg, &ts, *as)
 
