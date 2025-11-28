@@ -1,11 +1,12 @@
 package strava
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	//"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
-	"context"
+	"github.com/dan-nicholls/danlovesto.run/internal/api/db"
+	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
 	"golang.org/x/oauth2"
 	"io"
 	"net/http"
@@ -20,9 +21,10 @@ const (
 )
 
 type Client struct {
-	config     StravaConfig
-	http       *http.Client
-	TokenStore TokenStore
+	config        StravaConfig
+	http          *http.Client
+	TokenStore    TokenStore
+	ActivityStore db.ActivityStore
 }
 
 type Token struct {
@@ -31,12 +33,43 @@ type Token struct {
 	ExpiresAt    int64
 }
 
-func NewClient(cfg StravaConfig, tokenStore TokenStore) Client {
+func NewClient(cfg StravaConfig, tokenStore TokenStore, activityStore db.ActivityStore) Client {
 	return Client{
-		config:     cfg,
-		http:       &http.Client{},
-		TokenStore: tokenStore,
+		config:        cfg,
+		http:          &http.Client{},
+		TokenStore:    tokenStore,
+		ActivityStore: activityStore,
 	}
+}
+
+// TODO - Add Context
+func (c *Client) Sync() error {
+	// TODO - add context to FetchAllActivities
+	fmt.Println("Starting Sync...")
+	last, err := c.ActivityStore.LatestActivityStart()
+	if err != nil {
+		return fmt.Errorf("unable to fetch last activity start: %e", err)
+	}
+	fmt.Printf("Last Activity: %s (UNIX: %d)\n", last.Local().Format("2006-01-02 15:04:05"), last.Unix())
+
+	acts, err := c.FetchAllActivities(last.Unix(), 0, 0, false)
+	if err != nil {
+		return fmt.Errorf("Error fetching acts: %w", err)
+	}
+
+	for i := range acts {
+		act := acts[i]
+		fmt.Printf("Act[%d]: %+v\n", i, act)
+		id, err := c.ActivityStore.CreateActivity(&act)
+		if err != nil {
+			fmt.Printf("unable to store fetched activity %d: %e\n", act.ID, err)
+			continue
+		}
+		fmt.Printf("added activity %d to store\n", id)
+	}
+
+	fmt.Println("Sync Complete.")
+	return nil
 }
 
 func isExpired(exp int64) bool {
@@ -61,12 +94,11 @@ func (c *Client) ensureValidToken() error {
 	return nil
 }
 
-// fetchAllActivities paginates /athlete/activities and returns raw Strava JSON entries.
-// On 401 it refreshes once and retries; on 429 it waits briefly and retries.
-func (c *Client) FetchAllActivities(after, before int64, maxPages int, verbose bool) ([]map[string]any, error) {
-	perPage := 200 // Strava max per page
+func (c *Client) FetchAllActivities(after, before int64, maxPages int, verbose bool) ([]contracts.Activity, error) {
+	// TODO - Add context
+	perPage := 200
 	page := 1
-	var all []map[string]any
+	var all []contracts.Activity
 
 	// Ensure Valid Token
 	if err := c.ensureValidToken(); err != nil {
@@ -149,7 +181,7 @@ func (c *Client) FetchAllActivities(after, before int64, maxPages int, verbose b
 			return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
 		}
 
-		var items []map[string]any
+		var items []contracts.Activity
 		if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
 			resp.Body.Close()
 			return nil, err
@@ -170,7 +202,6 @@ func (c *Client) FetchAllActivities(after, before int64, maxPages int, verbose b
 		page++
 	}
 
-	// TODO - Convert into []contracts.Activity
 	return all, nil
 }
 
@@ -195,7 +226,7 @@ func (c *Client) refreshAccessToken() error {
 	form.Set("client_id", c.config.ClientID)
 	form.Set("client_secret", c.config.ClientSecret)
 	form.Set("grant_type", "refresh_token")
-	form.Set("refresh_token", tokens.RefreshToken) // ← correct field for refresh
+	form.Set("refresh_token", tokens.RefreshToken)
 
 	req, _ := http.NewRequest("POST", oauthTokenURL, strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -248,7 +279,7 @@ func (c *Client) runOAuth() error {
 	mux := http.NewServeMux()
 	done := make(chan error, 1)
 
-	// TODO - crypto/rand
+	// TODO - update to crypto/rand for better randomness
 	state := fmt.Sprintf("st-%d", time.Now().UnixNano())
 
 	mux.HandleFunc("/auth/strava", func(w http.ResponseWriter, r *http.Request) {

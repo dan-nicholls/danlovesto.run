@@ -249,13 +249,16 @@ func (s *ActivityStore) LatestActivityStart() (time.Time, error) {
 	`
 	row := s.DB.Conn.QueryRow(query)
 	var id int64
+	var startStr string
 	var t time.Time
 
-	if err := row.Scan(&id, &t); err != nil {
+	if err := row.Scan(&id, &startStr); err != nil {
 		if err == sql.ErrNoRows {
 			return t, nil
 		}
 		return t, fmt.Errorf("scan latest activity time: %w", err)
 	}
+
+	t = mustParseTime(startStr)
 	return t, nil
 }
