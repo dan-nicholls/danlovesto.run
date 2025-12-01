@@ -13,9 +13,8 @@ import (
 	"time"
 )
 
-func run(ctx context.Context, client strava.Client) error {
-	// TODO - make this into clientCfg
-	ticker := time.NewTicker(15 * time.Minute)
+func run(ctx context.Context, client strava.Client, interval time.Duration) error {
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	// Initial Sync
@@ -30,7 +29,6 @@ func run(ctx context.Context, client strava.Client) error {
 			fmt.Println("Run complete. Closing...")
 			return nil
 		case <-ticker.C:
-			fmt.Println("do work")
 			if err := client.Sync(); err != nil {
 				fmt.Printf("failed to sync: %v", err)
 			}
@@ -74,7 +72,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	if err := run(ctx, client); err != nil {
+	if err := run(ctx, client, cfg.SyncInterval); err != nil {
 		fmt.Printf("Error running app: %v", err)
 		os.Exit(1)
 	}
