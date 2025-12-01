@@ -32,7 +32,7 @@ func run(ctx context.Context, client strava.Client) error {
 		case <-ticker.C:
 			fmt.Println("do work")
 			if err := client.Sync(); err != nil {
-				return fmt.Errorf("failed to sync: %w", err)
+				fmt.Printf("failed to sync: %v", err)
 			}
 		}
 	}
