@@ -85,7 +85,6 @@ func (s *ActivityStore) UpsertActivity(a *contracts.Activity) (int64, error) {
 			elev_high, elev_low,
 			raw
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		)
 		`
 
 	res, err := s.DB.Conn.Exec(query,
