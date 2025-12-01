@@ -13,23 +13,6 @@ import (
 	"time"
 )
 
-type StravaConfig struct {
-	ClientID     string
-	ClientSecret string
-	RedirectURL  string
-	ListenPort   int
-}
-
-type DBConfig struct {
-	Path string
-}
-
-type Token struct {
-	AccessToken  string
-	RefreshToken string
-	ExpiresAt    int64
-}
-
 func run(ctx context.Context, client strava.Client) error {
 	// TODO - make this into clientCfg
 	ticker := time.NewTicker(15 * time.Minute)
