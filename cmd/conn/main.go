@@ -44,7 +44,7 @@ func run(ctx context.Context, client strava.Client) error {
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("closing stuff here")
+			fmt.Println("Run complete. Closing...")
 			return nil
 		case <-ticker.C:
 			fmt.Println("do work")
@@ -59,7 +59,6 @@ func main() {
 	err := godotenv.Load()
 	if err != nil {
 		fmt.Printf("Unable to load from .env: %v", err)
-		return
 	}
 
 	// 1. Load Config
