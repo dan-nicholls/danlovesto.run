@@ -62,6 +62,7 @@ func main() {
 		fmt.Printf("Unable to start DB: %v", err)
 		return
 	}
+	defer conn.Close()
 
 	ts := strava.SQLTokenStore{
 		DB: conn,

@@ -29,6 +29,14 @@ func NewSqlStore(dataSourceName string) (*Store, error) {
 	return s, nil
 }
 
+func (s *Store) Close() {
+	fmt.Println("Closing DB...")
+
+	if err := s.Conn.Close(); err != nil {
+		fmt.Printf("unable to close db: %v\n", err)
+	}
+}
+
 func (s *Store) EnsureSchemas() error {
 	if _, err := s.Conn.Exec(activitiesTable); err != nil {
 		return err
