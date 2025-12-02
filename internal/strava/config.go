@@ -14,7 +14,7 @@ type StravaConfig struct {
 	SyncInterval time.Duration
 }
 
-func (conf *StravaConfig) SetValues() error {
+func (conf *StravaConfig) setValues() error {
 	conf.ClientID = os.Getenv("STRAVA_CLIENT_ID")
 	conf.ClientSecret = os.Getenv("STRAVA_CLIENT_SECRET")
 	conf.RedirectURL = os.Getenv("STRAVA_REDIRECT_URL")
@@ -30,7 +30,7 @@ func (conf *StravaConfig) SetValues() error {
 	return nil
 }
 
-func (conf *StravaConfig) SetDefaults() {
+func (conf *StravaConfig) setDefaults() {
 	conf.SyncInterval = 15 * time.Minute
 }
 
@@ -48,7 +48,7 @@ func (conf *StravaConfig) Validate() error {
 	}
 
 	if conf.SyncInterval <= 0 {
-		return fmt.Errorf("STRAVA_SYNC_INTERVAL must be not be < 0")
+		return fmt.Errorf("STRAVA_SYNC_INTERVAL must not be < 0")
 	}
 
 	return nil
@@ -57,9 +57,9 @@ func (conf *StravaConfig) Validate() error {
 func LoadStravaConfig() (StravaConfig, error) {
 	conf := StravaConfig{}
 
-	conf.SetDefaults()
+	conf.setDefaults()
 
-	if err := conf.SetValues(); err != nil {
+	if err := conf.setValues(); err != nil {
 		return conf, err
 	}
 
@@ -73,11 +73,11 @@ type DBConfig struct {
 	Path string
 }
 
-func (conf *DBConfig) SetDefaults() {
+func (conf *DBConfig) setDefaults() {
 	conf.Path = "./data/data.db"
 }
 
-func (conf *DBConfig) SetValues() {
+func (conf *DBConfig) setValues() {
 	pathStr := os.Getenv("DB_PATH")
 	if pathStr != "" {
 		conf.Path = pathStr
@@ -92,8 +92,8 @@ func (conf *DBConfig) Validate() error {
 func LoadDBConfig() (DBConfig, error) {
 	conf := DBConfig{}
 
-	conf.SetDefaults()
-	conf.SetValues()
+	conf.setDefaults()
+	conf.setValues()
 	if err := conf.Validate(); err != nil {
 		return conf, err
 	}
