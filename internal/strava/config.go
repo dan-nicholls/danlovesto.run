@@ -22,7 +22,7 @@ func (conf *StravaConfig) setValues() error {
 	if syncIntStr := os.Getenv("STRAVA_SYNC_INTERVAL"); syncIntStr != "" {
 		syncInt, err := strconv.Atoi(syncIntStr)
 		if err != nil {
-			return fmt.Errorf("failed to parse sync interval: %w", err)
+			return fmt.Errorf("failed to parse sync interval")
 		}
 		conf.SyncInterval = time.Duration(syncInt) * time.Minute
 	}

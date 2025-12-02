@@ -137,6 +137,24 @@ func TestLoadStravaConfig_SyncIntervalIsZero(t *testing.T) {
 	}
 }
 
+func TestLoadStravaConfig_SyncIntervalNotANumber(t *testing.T) {
+	t.Setenv("STRAVA_CLIENT_ID", "abc")
+	t.Setenv("STRAVA_CLIENT_SECRET", "secret")
+	t.Setenv("STRAVA_REDIRECT_URL", "http://localhost/callback")
+
+	t.Setenv("STRAVA_SYNC_INTERVAL", "test")
+
+	_, err := LoadStravaConfig()
+	if err == nil {
+		t.Errorf("error expected, got nil")
+	}
+
+	expError := "failed to parse sync interval"
+	if err.Error() != expError {
+		t.Errorf(" error = %v, want %v", err.Error(), expError)
+	}
+}
+
 // DBConfig
 
 func TestLoadDBConfig_UseDefaults(t *testing.T) {
