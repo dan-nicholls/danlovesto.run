@@ -252,3 +252,31 @@ func TestLoadDBConfig_SetPathValue(t *testing.T) {
 		t.Errorf("Path = %v, want %v", cfg.Path, exp)
 	}
 }
+
+func TestLoadDBConfig_SetPathToEmptySpace(t *testing.T) {
+	exp := "./data/data.db"
+	t.Setenv("DB_PATH", " ")
+
+	cfg, err := LoadDBConfig()
+	if err != nil {
+		t.Errorf("LoadDBConfig() unexpected error: %v", err)
+	}
+
+	if cfg.Path != exp {
+		t.Errorf("Path = %v, want %v", cfg.Path, exp)
+	}
+}
+
+func TestLoadDBConfig_SetPathValueWithSpace(t *testing.T) {
+	exp := "./test.db"
+	t.Setenv("DB_PATH", " ./test.db ")
+
+	cfg, err := LoadDBConfig()
+	if err != nil {
+		t.Errorf("LoadDBConfig() unexpected error: %v", err)
+	}
+
+	if cfg.Path != exp {
+		t.Errorf("Path = %v, want %v", cfg.Path, exp)
+	}
+}
