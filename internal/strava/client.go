@@ -9,6 +9,7 @@ import (
 	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
 	"golang.org/x/oauth2"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -35,8 +36,17 @@ type Token struct {
 
 func NewClient(cfg StravaConfig, tokenStore TokenStore, activityStore db.ActivityStore) Client {
 	return Client{
-		config:        cfg,
-		http:          &http.Client{},
+		config: cfg,
+		http: &http.Client{
+			Timeout: 10 * time.Second,
+			Transport: &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout: time.Second,
+				}).DialContext,
+				TLSHandshakeTimeout:   time.Second,
+				ResponseHeaderTimeout: 3 * time.Second,
+			},
+		},
 		TokenStore:    tokenStore,
 		ActivityStore: activityStore,
 	}
@@ -327,8 +337,10 @@ func (c *Client) runOAuth() error {
 	})
 
 	srv := &http.Server{
-		Addr:    "127.0.0.1:8080",
-		Handler: mux,
+		Addr:              "127.0.0.1:8080",
+		Handler:           mux,
+		ReadHeaderTimeout: 500 * time.Second,
+		ReadTimeout:       500 * time.Second,
 	}
 
 	go func() {
