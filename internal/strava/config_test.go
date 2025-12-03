@@ -55,6 +55,58 @@ func TestLoadStravaConfig_MissingRequiredValues(t *testing.T) {
 	}
 }
 
+func TestLoadStravaConfig_EmptyRequiredValues(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(t *testing.T)
+		exp   string
+	}{
+		{
+			name: "empty client id",
+			setup: func(t *testing.T) {
+				t.Setenv("STRAVA_CLIENT_ID", " ")
+				t.Setenv("STRAVA_CLIENT_SECRET", "secret")
+				t.Setenv("RedirectURL", "http://localhost/callback")
+			},
+			exp: "STRAVA_CLIENT_ID must not be empty",
+		},
+		{
+			name: "empty client secret",
+			setup: func(t *testing.T) {
+				t.Setenv("STRAVA_CLIENT_ID", "abc")
+				t.Setenv("STRAVA_CLIENT_SECRET", " ")
+				t.Setenv("RedirectURL", "http://localhost/callback")
+			},
+			exp: "STRAVA_CLIENT_SECRET must not be empty",
+		},
+		{
+			name: "missing redirect url",
+			setup: func(t *testing.T) {
+				t.Setenv("STRAVA_CLIENT_ID", "abc")
+				t.Setenv("STRAVA_CLIENT_SECRET", "secret")
+				t.Setenv("STRAVA_REDIRECT_URL", " ")
+			},
+			exp: "STRAVA_REDIRECT_URL must not be empty",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup(t)
+
+			_, err := LoadStravaConfig()
+
+			if err == nil {
+				t.Errorf("expected error, got nil")
+			}
+
+			if err.Error() != tt.exp {
+				t.Errorf("error = %v, want %v", err.Error(), tt.exp)
+			}
+		})
+	}
+}
+
 func TestLoadStravaConfig_UseDefaults(t *testing.T) {
 	// Set required values
 	t.Setenv("STRAVA_CLIENT_ID", "abc")
@@ -151,7 +203,25 @@ func TestLoadStravaConfig_SyncIntervalNotANumber(t *testing.T) {
 
 	expError := "failed to parse sync interval"
 	if err.Error() != expError {
-		t.Errorf(" error = %v, want %v", err.Error(), expError)
+		t.Errorf("error = %v, want %v", err.Error(), expError)
+	}
+}
+
+func TestLoadStravaConfig_SyncIntervalEmptySpace(t *testing.T) {
+	t.Setenv("STRAVA_CLIENT_ID", "abc")
+	t.Setenv("STRAVA_CLIENT_SECRET", "secret")
+	t.Setenv("STRAVA_REDIRECT_URL", "http://localhost/callback")
+
+	t.Setenv("STRAVA_SYNC_INTERVAL", " ")
+
+	cfg, err := LoadStravaConfig()
+	if err != nil {
+		t.Errorf("LoadStravaConfig() unexpected error: %v", err)
+	}
+
+	expInterval := 15 * time.Minute
+	if cfg.SyncInterval != expInterval {
+		t.Errorf("SyncInterval = %v, want = %v", cfg.SyncInterval, expInterval)
 	}
 }
 

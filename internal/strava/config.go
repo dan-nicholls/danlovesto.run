@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -15,11 +16,11 @@ type StravaConfig struct {
 }
 
 func (conf *StravaConfig) setValues() error {
-	conf.ClientID = os.Getenv("STRAVA_CLIENT_ID")
-	conf.ClientSecret = os.Getenv("STRAVA_CLIENT_SECRET")
-	conf.RedirectURL = os.Getenv("STRAVA_REDIRECT_URL")
+	conf.ClientID = strings.TrimSpace(os.Getenv("STRAVA_CLIENT_ID"))
+	conf.ClientSecret = strings.TrimSpace(os.Getenv("STRAVA_CLIENT_SECRET"))
+	conf.RedirectURL = strings.TrimSpace(os.Getenv("STRAVA_REDIRECT_URL"))
 
-	if syncIntStr := os.Getenv("STRAVA_SYNC_INTERVAL"); syncIntStr != "" {
+	if syncIntStr := strings.TrimSpace(os.Getenv("STRAVA_SYNC_INTERVAL")); syncIntStr != "" {
 		syncInt, err := strconv.Atoi(syncIntStr)
 		if err != nil {
 			return fmt.Errorf("failed to parse sync interval")
@@ -78,7 +79,7 @@ func (conf *DBConfig) setDefaults() {
 }
 
 func (conf *DBConfig) setValues() {
-	pathStr := os.Getenv("DB_PATH")
+	pathStr := strings.TrimSpace(os.Getenv("DB_PATH"))
 	if pathStr != "" {
 		conf.Path = pathStr
 	}
