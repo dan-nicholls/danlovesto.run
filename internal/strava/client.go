@@ -112,7 +112,7 @@ func (c *Client) FetchAllActivities(after, before int64, maxPages int, verbose b
 
 	// Ensure Valid Token
 	if err := c.ensureValidToken(); err != nil {
-		return all, err
+		return all, fmt.Errorf("unable to ensure a valid token: %w", err)
 	}
 	tokens, err := c.TokenStore.Load("strava")
 	if err != nil {
@@ -148,7 +148,7 @@ func (c *Client) FetchAllActivities(after, before int64, maxPages int, verbose b
 
 		resp, err := c.http.Do(req)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed fetching strava activities: %w", err)
 		}
 
 		// 401 -> refresh and retry once
@@ -354,6 +354,8 @@ func (c *Client) runOAuth() error {
 
 	// Wait for callback/cancellation
 	err := <-done
+
+	fmt.Println("Authorization compelete.")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
