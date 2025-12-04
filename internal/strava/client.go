@@ -69,7 +69,7 @@ func (c *Client) Sync() error {
 
 	for i := range acts {
 		act := acts[i]
-		fmt.Printf("Act[%d]: %+v\n", i, act)
+		// fmt.Printf("Act[%d]: %+v\n", i, act)
 		id, err := c.ActivityStore.CreateActivity(&act)
 		if err != nil {
 			fmt.Printf("unable to store fetched activity %d: %e\n", act.ID, err)
@@ -339,8 +339,10 @@ func (c *Client) runOAuth() error {
 	srv := &http.Server{
 		Addr:              "127.0.0.1:8080",
 		Handler:           mux,
-		ReadHeaderTimeout: 500 * time.Second,
-		ReadTimeout:       500 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      20 * time.Second,
+		IdleTimeout:       90 * time.Second,
 	}
 
 	go func() {

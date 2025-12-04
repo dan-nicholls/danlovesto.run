@@ -49,7 +49,7 @@ func (conf *StravaConfig) Validate() error {
 	}
 
 	if conf.SyncInterval <= 0 {
-		return fmt.Errorf("STRAVA_SYNC_INTERVAL must not be < 0")
+		return fmt.Errorf("STRAVA_SYNC_INTERVAL must not be <= 0")
 	}
 
 	return nil
