@@ -36,3 +36,4 @@ data/
 
 # Compiled Go files
 *_templ.go
+out/

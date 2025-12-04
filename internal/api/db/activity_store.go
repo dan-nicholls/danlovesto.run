@@ -1,11 +1,11 @@
 package db
 
 import (
-	"log"
-	"strings"
+	"database/sql"
 	"encoding/json"
 	"fmt"
-	"database/sql"
+	"log"
+	"strings"
 	"time"
 
 	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
@@ -18,7 +18,7 @@ type ActivityRepo interface {
 }
 
 type ActivityStore struct {
-	DB *Store 
+	DB *Store
 }
 
 func NewActivityStore(db *Store) *ActivityStore {
@@ -30,7 +30,7 @@ func (s *ActivityStore) CreateActivity(a *contracts.Activity) (int64, error) {
 	endJSON, _ := json.Marshal(a.EndLatLng)
 	rawJSON, _ := json.Marshal(a)
 
-    const query = `
+	const query = `
 		INSERT INTO activities (
 			id, name, resource_state,
 			athlete_id, athlete_resource_state,
@@ -45,7 +45,7 @@ func (s *ActivityStore) CreateActivity(a *contracts.Activity) (int64, error) {
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
-    res, err := s.DB.Conn.Exec(query,
+	res, err := s.DB.Conn.Exec(query,
 		a.ID,
 		a.Name,
 		a.ResourceState,
@@ -59,12 +59,54 @@ func (s *ActivityStore) CreateActivity(a *contracts.Activity) (int64, error) {
 		a.AverageSpeed, a.MaxSpeed,
 		a.ElevHigh, a.ElevLow,
 		rawJSON,
-    )
+	)
 
 	if err != nil {
-		return 0, fmt.Errorf("insert activity: %w", err) 
+		return 0, fmt.Errorf("insert activity: %w", err)
 	}
-    return res.LastInsertId()
+	return res.LastInsertId()
+}
+
+func (s *ActivityStore) UpsertActivity(a *contracts.Activity) (int64, error) {
+	startJSON, _ := json.Marshal(a.StartLatLng)
+	endJSON, _ := json.Marshal(a.EndLatLng)
+	rawJSON, _ := json.Marshal(a)
+
+	const query = `
+		INSERT OR REPLACE INTO activities (
+			id, name, resource_state,
+			athlete_id, athlete_resource_state,
+			distance, moving_time, elapsed_time, total_elevation_gain, type,
+			start_date, start_date_local, timezone, utc_offset,
+			map_id, map_summary_polyline, map_resource_state,
+			gear_id,
+			start_latlng, end_latlng,
+			average_speed, max_speed,
+			elev_high, elev_low,
+			raw
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`
+
+	res, err := s.DB.Conn.Exec(query,
+		a.ID,
+		a.Name,
+		a.ResourceState,
+		a.Athlete.ID,
+		a.Athlete.ResourceState,
+		a.Distance, a.MovingTime, a.ElapsedTime, a.TotalElevationGain, a.Type,
+		a.StartDate, a.StartDateLocal, a.Timezone, a.UtcOffset,
+		a.Map.ID, a.Map.SummaryPolyline, a.Map.ResourceState,
+		a.GearID,
+		startJSON, endJSON,
+		a.AverageSpeed, a.MaxSpeed,
+		a.ElevHigh, a.ElevLow,
+		rawJSON,
+	)
+
+	if err != nil {
+		return 0, fmt.Errorf("upsert activity: %w", err)
+	}
+	return res.LastInsertId()
 }
 
 func (s *ActivityStore) GetActivityByID(id int64) (*contracts.Activity, error) {
@@ -128,7 +170,7 @@ func (s *ActivityStore) GetAllActivities(filter ActivityFilter) ([]*contracts.Ac
 	`
 	where := " WHERE 1=1"
 	args := []any{}
-	
+
 	// Create Filters from ActivityFilter
 	if len(filter.Types) > 0 {
 		clause, phArgs := makeInClause("type", filter.Types)
@@ -137,7 +179,7 @@ func (s *ActivityStore) GetAllActivities(filter ActivityFilter) ([]*contracts.Ac
 	}
 
 	order := "ORDER BY start_date DESC"
-	
+
 	query := base + where + order
 	rows, err := s.DB.Conn.Query(query, args...)
 	if err != nil {
@@ -198,4 +240,24 @@ func makeInClause(col string, vals []string) (string, []any) {
 		args[i] = v
 	}
 	return fmt.Sprintf("%s IN (%s)", col, strings.Join(placeholders, ",")), args
+}
+
+func (s *ActivityStore) LatestActivityStart() (time.Time, error) {
+	query := `
+		SELECT id, start_date FROM activities ORDER BY start_date DESC LIMIT 1
+	`
+	row := s.DB.Conn.QueryRow(query)
+	var id int64
+	var startStr string
+	var t time.Time
+
+	if err := row.Scan(&id, &startStr); err != nil {
+		if err == sql.ErrNoRows {
+			return t, nil
+		}
+		return t, fmt.Errorf("scan latest activity time: %w", err)
+	}
+
+	t = mustParseTime(startStr)
+	return t, nil
 }

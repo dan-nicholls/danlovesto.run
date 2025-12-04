@@ -1,5 +1,0 @@
-{
-	"version": "v0.1.0",
-	"port": 3000,
-	"database_url": "./data/data.db"
-}

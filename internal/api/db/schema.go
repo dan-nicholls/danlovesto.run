@@ -50,4 +50,20 @@ const (
 	INSERT OR IGNORE INTO personal_bests(distance) VALUES
 	('1km'), ('5km'), ('10km'), ('Half-Marathon');
 	`
+
+	tokenTable = `
+	CREATE TABLE IF NOT EXISTS oauth_tokens (
+		provider TEXT PRIMARY KEY,
+		access_token TEXT NOT NULL,
+		refresh_token TEXT NOT NULL,
+		expires_at INTEGER NOT NULL,
+		updated_at DATETIME DEFAULT  CURRENT_TIMESTAMP
+	);`
+
+	appStateTable = `
+	CREATE TABLE IF NOT EXISTS app_state (
+		key TEXT PRIMARY KEY
+		value TEXT NOT NULL,
+		updated_at DATETIME DEFAULT  CURRENT_TIMESTAMP
+	);`
 )
