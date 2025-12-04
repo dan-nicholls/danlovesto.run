@@ -52,17 +52,20 @@ func NewClient(cfg StravaConfig, tokenStore TokenStore, activityStore db.Activit
 	}
 }
 
-// TODO - Add Context
-func (c *Client) Sync() error {
-	// TODO - add context to FetchAllActivities
+func (c *Client) Sync(ctx context.Context) error {
 	fmt.Println("Starting Sync...")
+
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	last, err := c.ActivityStore.LatestActivityStart()
 	if err != nil {
 		return fmt.Errorf("unable to fetch last activity start: %e", err)
 	}
 	fmt.Printf("Last Activity: %s (UNIX: %d)\n", last.Local().Format("2006-01-02 15:04:05"), last.Unix())
 
-	acts, err := c.FetchAllActivities(last.Unix(), 0, 0, false)
+	acts, err := c.FetchAllActivities(ctx, last.Unix(), 0, 0, false)
 	if err != nil {
 		return fmt.Errorf("Error fetching acts: %w", err)
 	}
@@ -87,31 +90,30 @@ func isExpired(exp int64) bool {
 	return time.Now().After(t)
 }
 
-func (c *Client) ensureValidToken() error {
+func (c *Client) ensureValidToken(ctx context.Context) error {
 	token, err := c.TokenStore.Load("strava")
 	if err != nil {
 		return fmt.Errorf("unable to load token from store: %w", err)
 	}
 
 	if token.RefreshToken == "" {
-		return c.runOAuth()
+		return c.runOAuth(ctx)
 	}
 
 	if token.AccessToken == "" || isExpired(token.ExpiresAt) {
-		return c.refreshAccessToken()
+		return c.refreshAccessToken(ctx)
 	}
 
 	return nil
 }
 
-func (c *Client) FetchAllActivities(after, before int64, maxPages int, verbose bool) ([]contracts.Activity, error) {
-	// TODO - Add context
+func (c *Client) FetchAllActivities(ctx context.Context, after, before int64, maxPages int, verbose bool) ([]contracts.Activity, error) {
 	perPage := 200
 	page := 1
 	var all []contracts.Activity
 
 	// Ensure Valid Token
-	if err := c.ensureValidToken(); err != nil {
+	if err := c.ensureValidToken(ctx); err != nil {
 		return all, fmt.Errorf("unable to ensure a valid token: %w", err)
 	}
 	tokens, err := c.TokenStore.Load("strava")
@@ -157,7 +159,7 @@ func (c *Client) FetchAllActivities(after, before int64, maxPages int, verbose b
 			if verbose {
 				fmt.Printf("401 Unauthorized: attempting token refresh\n")
 			}
-			err := c.refreshAccessToken()
+			err := c.refreshAccessToken(ctx)
 			if err != nil {
 				return nil, fmt.Errorf("refresh failed: %w", err)
 			}
@@ -223,7 +225,7 @@ type TokenResponse struct {
 	ExpiresIn    int64  `json:"expires_in"`
 }
 
-func (c *Client) refreshAccessToken() error {
+func (c *Client) refreshAccessToken(ctx context.Context) error {
 	tokens, err := c.TokenStore.Load("strava")
 	if err != nil {
 		return fmt.Errorf("unable to fetch from token store: %w", err)
@@ -238,7 +240,10 @@ func (c *Client) refreshAccessToken() error {
 	form.Set("grant_type", "refresh_token")
 	form.Set("refresh_token", tokens.RefreshToken)
 
-	req, _ := http.NewRequest("POST", oauthTokenURL, strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, oauthTokenURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return err
+	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := c.http.Do(req)
@@ -274,7 +279,7 @@ func (c *Client) refreshAccessToken() error {
 	return nil
 }
 
-func (c *Client) runOAuth() error {
+func (c *Client) runOAuth(ctx context.Context) error {
 	oauthCfg := &oauth2.Config{
 		ClientID:     c.config.ClientID,
 		ClientSecret: c.config.ClientSecret,
@@ -354,8 +359,12 @@ func (c *Client) runOAuth() error {
 	fmt.Println("Visit http://localhost:8080/auth/strava in browser to authorize Strava.")
 	fmt.Println("Waiting for authorization...")
 
-	// Wait for callback/cancellation
-	err := <-done
+	var err error
+	select {
+	case err = <-done:
+	case <-ctx.Done():
+		err = ctx.Err()
+	}
 
 	fmt.Println("Authorization compelete.")
 

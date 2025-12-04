@@ -19,7 +19,7 @@ func run(ctx context.Context, client strava.Client, interval time.Duration) erro
 	}
 
 	// Initial Sync
-	if err := client.Sync(); err != nil {
+	if err := client.Sync(ctx); err != nil {
 		return fmt.Errorf("failed to complete initial sync: %w\n", err)
 	}
 
@@ -33,7 +33,7 @@ func run(ctx context.Context, client strava.Client, interval time.Duration) erro
 			fmt.Println("Run complete. Closing...")
 			return nil
 		case <-ticker.C:
-			if err := client.Sync(); err != nil {
+			if err := client.Sync(ctx); err != nil {
 				fmt.Printf("failed to sync: %v\n", err)
 			}
 		}
