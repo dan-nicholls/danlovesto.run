@@ -14,13 +14,17 @@ import (
 )
 
 func run(ctx context.Context, client strava.Client, interval time.Duration) error {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
+	if interval <= 0 {
+		return fmt.Errorf("run interval needs to be >= 0")
+	}
 
 	// Initial Sync
 	if err := client.Sync(); err != nil {
-		fmt.Printf("failed to complete initial sync: %v)\n", err)
+		return fmt.Errorf("failed to complete initial sync: %w\n", err)
 	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
 
 	// Sync Loop
 	for {
