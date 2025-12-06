@@ -13,13 +13,13 @@ import (
 	"time"
 )
 
-func run(ctx context.Context, client strava.Client, interval time.Duration) error {
+func run(ctx context.Context, as strava.ActivityService, interval time.Duration) error {
 	if interval <= 0 {
 		return fmt.Errorf("run interval needs to be >= 0")
 	}
 
 	// Initial Sync
-	if err := client.Sync(ctx); err != nil {
+	if err := as.Sync(ctx); err != nil {
 		return fmt.Errorf("failed to complete initial sync: %w\n", err)
 	}
 
@@ -33,7 +33,7 @@ func run(ctx context.Context, client strava.Client, interval time.Duration) erro
 			fmt.Println("Run complete. Closing...")
 			return nil
 		case <-ticker.C:
-			if err := client.Sync(ctx); err != nil {
+			if err := as.Sync(ctx); err != nil {
 				fmt.Printf("failed to sync: %v\n", err)
 			}
 		}
@@ -69,14 +69,17 @@ func main() {
 	ts := strava.SQLTokenStore{
 		DB: conn,
 	}
-	as := db.NewActivityStore(conn)
+	actStore := db.NewActivityStore(conn)
+	pbStore := db.NewPBStore(conn)
 
-	client := strava.NewClient(cfg, &ts, *as)
+	client := strava.NewClient(cfg, &ts)
+
+	actService := strava.NewActivityService(client, *actStore, *pbStore)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	if err := run(ctx, client, cfg.SyncInterval); err != nil {
+	if err := run(ctx, *actService, cfg.SyncInterval); err != nil {
 		fmt.Printf("Error running app: %v", err)
 		os.Exit(1)
 	}

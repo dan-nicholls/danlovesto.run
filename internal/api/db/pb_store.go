@@ -2,24 +2,24 @@ package db
 
 import (
 	"fmt"
-	"time"
 	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
+	"time"
 )
 
 type PBRepo interface {
-	SetPB(distance, duration string, activityID int64) error
+	SetPB(distance string, duration int, activityID int64) error
 	GetAllPBs() ([]*contracts.PersonalBest, error)
 }
 
 type PBStore struct {
-	DB *Store 
+	DB *Store
 }
 
 func NewPBStore(db *Store) *PBStore {
 	return &PBStore{DB: db}
 }
 
-func (s *PBStore) SetPB(distance string, duration string, activityID int64) error {
+func (s *PBStore) SetPB(distance string, duration int, activityID int64) error {
 	_, err := s.DB.Conn.Exec(`
 		UPDATE personal_bests
 		SET duration = ?, activity_id = ?,  updated_at = ?

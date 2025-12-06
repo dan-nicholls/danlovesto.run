@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -22,10 +23,9 @@ const (
 )
 
 type Client struct {
-	config        StravaConfig
-	http          *http.Client
-	TokenStore    TokenStore
-	ActivityStore db.ActivityStore
+	config     StravaConfig
+	http       *http.Client
+	TokenStore TokenStore
 }
 
 type Token struct {
@@ -34,7 +34,7 @@ type Token struct {
 	ExpiresAt    int64
 }
 
-func NewClient(cfg StravaConfig, tokenStore TokenStore, activityStore db.ActivityStore) Client {
+func NewClient(cfg StravaConfig, tokenStore TokenStore) Client {
 	return Client{
 		config: cfg,
 		http: &http.Client{
@@ -44,45 +44,11 @@ func NewClient(cfg StravaConfig, tokenStore TokenStore, activityStore db.Activit
 					Timeout: time.Second,
 				}).DialContext,
 				TLSHandshakeTimeout:   time.Second,
-				ResponseHeaderTimeout: 3 * time.Second,
+				ResponseHeaderTimeout: 5 * time.Second,
 			},
 		},
-		TokenStore:    tokenStore,
-		ActivityStore: activityStore,
+		TokenStore: tokenStore,
 	}
-}
-
-func (c *Client) Sync(ctx context.Context) error {
-	fmt.Println("Starting Sync...")
-
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-
-	last, err := c.ActivityStore.LatestActivityStart()
-	if err != nil {
-		return fmt.Errorf("unable to fetch last activity start: %e", err)
-	}
-	fmt.Printf("Last Activity: %s (UNIX: %d)\n", last.Local().Format("2006-01-02 15:04:05"), last.Unix())
-
-	acts, err := c.FetchAllActivities(ctx, last.Unix(), 0, 0, false)
-	if err != nil {
-		return fmt.Errorf("Error fetching acts: %w", err)
-	}
-
-	for i := range acts {
-		act := acts[i]
-		// fmt.Printf("Act[%d]: %+v\n", i, act)
-		id, err := c.ActivityStore.CreateActivity(&act)
-		if err != nil {
-			fmt.Printf("unable to store fetched activity %d: %e\n", act.ID, err)
-			continue
-		}
-		fmt.Printf("added activity %d to store\n", id)
-	}
-
-	fmt.Println("Sync Complete.")
-	return nil
 }
 
 func isExpired(exp int64) bool {
@@ -107,10 +73,10 @@ func (c *Client) ensureValidToken(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) FetchAllActivities(ctx context.Context, after, before int64, maxPages int, verbose bool) ([]contracts.Activity, error) {
+func (c *Client) FetchAllActivities(ctx context.Context, after, before int64, maxPages int, verbose bool) ([]contracts.StravaActivity, error) {
 	perPage := 200
 	page := 1
-	var all []contracts.Activity
+	var all []contracts.StravaActivity
 
 	// Ensure Valid Token
 	if err := c.ensureValidToken(ctx); err != nil {
@@ -193,13 +159,23 @@ func (c *Client) FetchAllActivities(ctx context.Context, after, before int64, ma
 			return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
 		}
 
-		var items []contracts.Activity
+		var items []contracts.StravaActivity
 		if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
 			resp.Body.Close()
 			return nil, err
 		}
 		resp.Body.Close()
-
+		// body, err := io.ReadAll(resp.Body)
+		// resp.Body.Close()
+		// if err != nil {
+		// 	return nil, fmt.Errorf("unable to parse body: %w", err)
+		// }
+		// fmt.Println(string(body))
+		// var items []contracts.Activity
+		// if err := json.Unmarshal(body, &items); err != nil {
+		// 	return nil, err
+		// }
+		//
 		if len(items) == 0 {
 			if verbose {
 				fmt.Printf("page %d returned 0 items — done\n", page)
@@ -373,4 +349,81 @@ func (c *Client) runOAuth(ctx context.Context) error {
 	_ = srv.Shutdown(shutdownCtx)
 
 	return err
+}
+
+func (c *Client) GetActivityDetails(ctx context.Context, id int64, verbose bool) (contracts.StravaDetailedActivity, error) {
+	var finalRes contracts.StravaDetailedActivity
+	if id == "" {
+		return finalRes, fmt.Errorf("invalid id: %d", id)
+	}
+
+	// Ensure there is a valid auth token
+	if err := c.ensureValidToken(ctx); err != nil {
+		return finalRes, fmt.Errorf("failed to ensure valid token: %w", err)
+	}
+	tokens, err := c.TokenStore.Load("strava")
+	if err != nil {
+		return finalRes, fmt.Errorf("unable to load token from store: %w", err)
+	}
+
+	// Make requests
+	idStr := strconv.Itoa(id)
+	u, _ := url.Parse(baseAPI + "/activities/" + idStr)
+	fmt.Printf("url: %+v\n", u)
+	req, _ := http.NewRequest("GET", u.String(), nil)
+	req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return finalRes, fmt.Errorf("unable to fetch detailed activity: %w", err)
+	}
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		resp.Body.Close()
+		if verbose {
+			fmt.Printf("401 Unauthorized: attempting to refresh token\n")
+		}
+		err := c.refreshAccessToken(ctx)
+		if err != nil {
+			return finalRes, fmt.Errorf("refresh failed: %w", err)
+		}
+
+		tokens, err = c.TokenStore.Load("strava")
+		if err != nil {
+			return finalRes, fmt.Errorf("failed to fetch token from store after refresh: %w", err)
+		}
+
+		req, _ := http.NewRequest("GET", u.String(), nil)
+		req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
+		resp, err = c.http.Do(req)
+		if err != nil {
+			return finalRes, err
+		}
+	}
+
+	// basic rate limiting
+	if resp.StatusCode == http.StatusTooManyRequests {
+		resp.Body.Close()
+		if verbose {
+			fmt.Printf("429 Rate limited: sleeping 60s\n")
+		}
+		time.Sleep(60 * time.Second)
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return finalRes, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Start parsing
+	body, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return finalRes, fmt.Errorf("failed to parse body: %w", err)
+	}
+
+	fmt.Println(body)
+	// TODO - Ensure final parsed body is returned
+	return finalRes, nil
 }
