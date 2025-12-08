@@ -8,14 +8,14 @@ import (
 )
 
 type RunService struct {
-	activities 	db.ActivityRepo
-	pbs			db.PBRepo
+	activities db.ActivityRepo
+	pbs        db.PBRepo
 }
 
 func NewRunService(ar db.ActivityRepo, pr db.PBRepo) *RunService {
 	return &RunService{
 		activities: ar,
-		pbs: pr,
+		pbs:        pr,
 	}
 }
 
@@ -57,9 +57,9 @@ func (s *RunService) ListDetailedPBs() ([]contracts.DetailedPersonalBest, error)
 		}
 
 		dpb := contracts.DetailedPersonalBest{
-			Distance: pb.Distance,
-			Duration: pb.Duration,
-			Activity: a,
+			Distance:  pb.Distance,
+			Duration:  pb.Duration,
+			Activity:  a,
 			UpdatedAt: pb.UpdatedAt,
 		}
 		detailedPBs = append(detailedPBs, dpb)
@@ -138,5 +138,5 @@ func (r *RunService) TotalClimbed() (int, error) {
 			total = total + int(a.TotalElevationGain)
 		}
 	}
-	return total, nil 
+	return total, nil
 }

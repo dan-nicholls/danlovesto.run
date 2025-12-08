@@ -28,37 +28,29 @@ func NewActivityStore(db *Store) *ActivityStore {
 func (s *ActivityStore) CreateActivity(a *contracts.Activity) (int64, error) {
 	startJSON, _ := json.Marshal(a.StartLatLng)
 	endJSON, _ := json.Marshal(a.EndLatLng)
-	rawJSON, _ := json.Marshal(a)
 
 	const query = `
 		INSERT INTO activities (
-			id, name, resource_state,
-			athlete_id, athlete_resource_state,
+			id, name, athlete_id,
 			distance, moving_time, elapsed_time, total_elevation_gain, type,
 			start_date, start_date_local, timezone, utc_offset,
-			map_id, map_summary_polyline, map_resource_state,
-			gear_id,
+			location_city, location_state, location_country,
+			map_id, map_polyline, map_summary_polyline,
 			start_latlng, end_latlng,
 			average_speed, max_speed,
-			elev_high, elev_low,
-			raw
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			elev_high, elev_low
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	res, err := s.DB.Conn.Exec(query,
-		a.ID,
-		a.Name,
-		a.ResourceState,
-		a.Athlete.ID,
-		a.Athlete.ResourceState,
+		a.ID, a.Name, a.AthleteID,
 		a.Distance, a.MovingTime, a.ElapsedTime, a.TotalElevationGain, a.Type,
 		a.StartDate, a.StartDateLocal, a.Timezone, a.UtcOffset,
-		a.Map.ID, a.Map.SummaryPolyline, a.Map.ResourceState,
-		a.GearID,
+		a.LocationCity, a.LocationState, a.LocationCountry,
+		a.Map.ID, a.Map.Polyline, a.Map.SummaryPolyline,
 		startJSON, endJSON,
 		a.AverageSpeed, a.MaxSpeed,
 		a.ElevHigh, a.ElevLow,
-		rawJSON,
 	)
 
 	if err != nil {
@@ -70,37 +62,29 @@ func (s *ActivityStore) CreateActivity(a *contracts.Activity) (int64, error) {
 func (s *ActivityStore) UpsertActivity(a *contracts.Activity) (int64, error) {
 	startJSON, _ := json.Marshal(a.StartLatLng)
 	endJSON, _ := json.Marshal(a.EndLatLng)
-	rawJSON, _ := json.Marshal(a)
 
 	const query = `
 		INSERT OR REPLACE INTO activities (
-			id, name, resource_state,
-			athlete_id, athlete_resource_state,
+			id, name, athlete_id,
 			distance, moving_time, elapsed_time, total_elevation_gain, type,
 			start_date, start_date_local, timezone, utc_offset,
-			map_id, map_summary_polyline, map_resource_state,
-			gear_id,
+			location_city, location_state, location_country,
+			map_id, map_polyline, map_summary_polyline,
 			start_latlng, end_latlng,
 			average_speed, max_speed,
-			elev_high, elev_low,
-			raw
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			elev_high, elev_low
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`
 
 	res, err := s.DB.Conn.Exec(query,
-		a.ID,
-		a.Name,
-		a.ResourceState,
-		a.Athlete.ID,
-		a.Athlete.ResourceState,
+		a.ID, a.Name, a.AthleteID,
 		a.Distance, a.MovingTime, a.ElapsedTime, a.TotalElevationGain, a.Type,
 		a.StartDate, a.StartDateLocal, a.Timezone, a.UtcOffset,
-		a.Map.ID, a.Map.SummaryPolyline, a.Map.ResourceState,
-		a.GearID,
+		a.LocationCity, a.LocationState, a.LocationCountry,
+		a.Map.ID, a.Map.Polyline, a.Map.SummaryPolyline,
 		startJSON, endJSON,
 		a.AverageSpeed, a.MaxSpeed,
 		a.ElevHigh, a.ElevLow,
-		rawJSON,
 	)
 
 	if err != nil {
@@ -112,16 +96,14 @@ func (s *ActivityStore) UpsertActivity(a *contracts.Activity) (int64, error) {
 func (s *ActivityStore) GetActivityByID(id int64) (*contracts.Activity, error) {
 	query := `
 		SELECT 
-			id, name, resource_state,
-			athlete_id, athlete_resource_state,
+			id, name, athlete_id,
 			distance, moving_time, elapsed_time, total_elevation_gain, type,
 			start_date, start_date_local, timezone, utc_offset,
-			map_id, map_summary_polyline, map_resource_state,
-			gear_id,
+			location_city, location_state, location_country,
+			map_id, map_polyline, map_summary_polyline,
 			start_latlng, end_latlng,
 			average_speed, max_speed,
-			elev_high, elev_low,
-			raw
+			elev_high, elev_low
 		FROM activities WHERE id = ?`
 	row := s.DB.Conn.QueryRow(query, id)
 	var m contracts.Activity
@@ -129,16 +111,14 @@ func (s *ActivityStore) GetActivityByID(id int64) (*contracts.Activity, error) {
 	var startStr, startLocalStr string
 
 	if err := row.Scan(
-		&m.ID, &m.Name, &m.ResourceState,
-		&m.Athlete.ID, &m.Athlete.ResourceState,
+		&m.ID, &m.Name, &m.AthleteID,
 		&m.Distance, &m.MovingTime, &m.ElapsedTime, &m.TotalElevationGain, &m.Type,
 		&startStr, &startLocalStr, &m.Timezone, &m.UtcOffset,
-		&m.Map.ID, &m.Map.SummaryPolyline, &m.Map.ResourceState,
-		&m.GearID,
+		&m.LocationCity, &m.LocationState, &m.LocationCountry,
+		&m.Map.ID, &m.Map.Polyline, &m.Map.SummaryPolyline,
 		&startJSON, &endJSON,
 		&m.AverageSpeed, &m.MaxSpeed,
 		&m.ElevHigh, &m.ElevLow,
-		&m.RawJSON,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -156,16 +136,14 @@ func (s *ActivityStore) GetActivityByID(id int64) (*contracts.Activity, error) {
 func (s *ActivityStore) GetAllActivities(filter ActivityFilter) ([]*contracts.Activity, error) {
 	base := `
 		SELECT 
-			id, name, resource_state,
-			athlete_id, athlete_resource_state,
+			id, name, athlete_id,
 			distance, moving_time, elapsed_time, total_elevation_gain, type,
 			start_date, start_date_local, timezone, utc_offset,
-			map_id, map_summary_polyline, map_resource_state,
-			gear_id,
+			location_city, location_state, location_country,
+			map_id, map_polyline, map_summary_polyline,
 			start_latlng, end_latlng,
 			average_speed, max_speed,
-			elev_high, elev_low,
-			raw
+			elev_high, elev_low
 		FROM activities
 	`
 	where := " WHERE 1=1"
@@ -194,16 +172,14 @@ func (s *ActivityStore) GetAllActivities(filter ActivityFilter) ([]*contracts.Ac
 		var startStr, startLocalStr string
 
 		if err := rows.Scan(
-			&m.ID, &m.Name, &m.ResourceState,
-			&m.Athlete.ID, &m.Athlete.ResourceState,
+			&m.ID, &m.Name, &m.AthleteID,
 			&m.Distance, &m.MovingTime, &m.ElapsedTime, &m.TotalElevationGain, &m.Type,
 			&startStr, &startLocalStr, &m.Timezone, &m.UtcOffset,
-			&m.Map.ID, &m.Map.SummaryPolyline, &m.Map.ResourceState,
-			&m.GearID,
+			&m.LocationCity, &m.LocationState, &m.LocationCountry,
+			&m.Map.ID, &m.Map.Polyline, &m.Map.SummaryPolyline,
 			&startJSON, &endJSON,
 			&m.AverageSpeed, &m.MaxSpeed,
 			&m.ElevHigh, &m.ElevLow,
-			&m.RawJSON,
 		); err != nil {
 			return nil, fmt.Errorf("scan activity: %w", err)
 		}

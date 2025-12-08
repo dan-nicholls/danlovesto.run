@@ -5,10 +5,10 @@ import (
 )
 
 type Activity struct {
-	ID                 int64 `json:"id"`
-	Name               string
-	ResourceState      int
-	AthleteID          int
+	ID        int64 `json:"id"`
+	Name      string
+	AthleteID int
+
 	Distance           float64   `json:"distance"`
 	MovingTime         int       `json:"moving_time"`  // seconds
 	ElapsedTime        int       `json:"elapsed_time"` // seconds
@@ -33,8 +33,6 @@ type Activity struct {
 
 	ElevHigh float64 `json:"elev_high"`
 	ElevLow  float64 `json:"elev_low"`
-
-	RawJSON []byte `json:"-" db:"raw"`
 }
 
 type Athlete struct {
@@ -45,5 +43,4 @@ type ActivityMap struct {
 	ID              string `json:"id"`
 	Polyline        string `json:"polyline"`
 	SummaryPolyline string `json:"summary_polyline"`
-	ResourceState   int    `json:"resource_state"`
 }

@@ -11,10 +11,10 @@ type StravaActivity struct {
 		ResourceState int `json:"resource_state"`
 	} `json:"athlete"`
 	Name               string    `json:"name"`
-	Distance           int       `json:"distance"`
+	Distance           float64   `json:"distance"`
 	MovingTime         int       `json:"moving_time"`
 	ElapsedTime        int       `json:"elapsed_time"`
-	TotalElevationGain int       `json:"total_elevation_gain"`
+	TotalElevationGain float64   `json:"total_elevation_gain"`
 	Type               string    `json:"type"`
 	SportType          string    `json:"sport_type"`
 	WorkoutType        int       `json:"workout_type"`
@@ -23,7 +23,7 @@ type StravaActivity struct {
 	StartDate          time.Time `json:"start_date"`
 	StartDateLocal     time.Time `json:"start_date_local"`
 	Timezone           string    `json:"timezone"`
-	UtcOffset          int       `json:"utc_offset"`
+	UtcOffset          float64   `json:"utc_offset"`
 	LocationCity       any       `json:"location_city"`
 	LocationState      any       `json:"location_state"`
 	LocationCountry    any       `json:"location_country"`
@@ -46,8 +46,8 @@ type StravaActivity struct {
 	GearID                     any     `json:"gear_id"`
 	StartLatlng                []any   `json:"start_latlng"`
 	EndLatlng                  []any   `json:"end_latlng"`
-	AverageSpeed               int     `json:"average_speed"`
-	MaxSpeed                   int     `json:"max_speed"`
+	AverageSpeed               float64 `json:"average_speed"`
+	MaxSpeed                   float64 `json:"max_speed"`
 	HasHeartrate               bool    `json:"has_heartrate"`
 	HeartrateOptOut            bool    `json:"heartrate_opt_out"`
 	DisplayHideHeartrateOption bool    `json:"display_hide_heartrate_option"`
@@ -81,7 +81,7 @@ type StravaDetailedActivity struct {
 	StartDate          time.Time `json:"start_date"`
 	StartDateLocal     time.Time `json:"start_date_local"`
 	Timezone           string    `json:"timezone"`
-	UtcOffset          int       `json:"utc_offset"`
+	UtcOffset          float64   `json:"utc_offset"`
 	LocationCity       string    `json:"location_city"`
 	LocationState      string    `json:"location_state"`
 	LocationCountry    string    `json:"location_country"`
@@ -126,7 +126,7 @@ type StravaDetailedActivity struct {
 	TotalPhotoCount            int       `json:"total_photo_count"`
 	HasKudoed                  bool      `json:"has_kudoed"`
 	Description                string    `json:"description"`
-	Calories                   int       `json:"calories"`
+	Calories                   float64   `json:"calories"`
 	PerceivedExertion          any       `json:"perceived_exertion"`
 	PreferPerceivedExertion    bool      `json:"prefer_perceived_exertion"`
 	SegmentEfforts             []struct {
@@ -158,10 +158,10 @@ type StravaDetailedActivity struct {
 			Name              string    `json:"name"`
 			ActivityType      string    `json:"activity_type"`
 			Distance          float64   `json:"distance"`
-			AverageGrade      int       `json:"average_grade"`
+			AverageGrade      float64   `json:"average_grade"`
 			MaximumGrade      float64   `json:"maximum_grade"`
 			ElevationHigh     float64   `json:"elevation_high"`
-			ElevationLow      int       `json:"elevation_low"`
+			ElevationLow      float64   `json:"elevation_low"`
 			StartLatlng       []float64 `json:"start_latlng"`
 			EndLatlng         []float64 `json:"end_latlng"`
 			ElevationProfile  any       `json:"elevation_profile"`
@@ -216,7 +216,7 @@ type StravaDetailedActivity struct {
 		MovingTime         int       `json:"moving_time"`
 		StartDate          time.Time `json:"start_date"`
 		StartDateLocal     time.Time `json:"start_date_local"`
-		Distance           int       `json:"distance"`
+		Distance           float64   `json:"distance"`
 		AverageSpeed       float64   `json:"average_speed"`
 		MaxSpeed           float64   `json:"max_speed"`
 		LapIndex           int       `json:"lap_index"`
