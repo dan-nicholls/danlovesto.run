@@ -11,6 +11,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -70,6 +72,25 @@ func (c *Client) ensureValidToken(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (c *Client) RecordJSON(kind string, key string, body []byte) {
+	if os.Getenv("STRAVA_RECORD") != "1" {
+		return
+	}
+
+	dir := "testdata"
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		fmt.Printf("failed to create recording dir: %v\n", err)
+		return
+	}
+
+	filename := filepath.Join(dir, fmt.Sprintf("%s_%s.json", kind, key))
+	if err := os.WriteFile(filename, body, 0o755); err != nil {
+		fmt.Printf("record json write failed: %v\n", err)
+	} else {
+		fmt.Printf("recorded %s_%x.json\n", kind, key)
+	}
 }
 
 func (c *Client) FetchAllActivities(ctx context.Context, after, before int64, maxPages int, verbose bool) ([]contracts.StravaActivity, error) {
@@ -179,6 +200,8 @@ func (c *Client) FetchAllActivities(ctx context.Context, after, before int64, ma
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse body: %w", err)
 		}
+
+		c.RecordJSON("activities", fmt.Sprintf("page_%d", page), body)
 
 		var items []contracts.StravaActivity
 		if err := json.Unmarshal(body, &items); err != nil {
@@ -444,11 +467,13 @@ func (c *Client) GetActivityDetails(ctx context.Context, id int64, verbose bool)
 
 		// Start parsing
 		body, err := io.ReadAll(resp.Body)
+
 		resp.Body.Close()
 		if err != nil {
 			return finalRes, fmt.Errorf("failed to parse body: %w", err)
 		}
 
+		c.RecordJSON("details", fmt.Sprintf("_%d", id), body)
 		if err := json.Unmarshal(body, &finalRes); err != nil {
 			return finalRes, fmt.Errorf("failed to marshal detailed activity from body: %w", err)
 		}
