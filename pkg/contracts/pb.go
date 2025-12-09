@@ -5,10 +5,11 @@ import (
 )
 
 type PersonalBest struct {
-	Distance   string
-	Duration   int
-	ActivityID int64
-	UpdatedAt  time.Time
+	Name        string
+	Distance    int
+	ElapsedTime int
+	ActivityID  int64
+	UpdatedAt   time.Time
 }
 
 type DetailedPersonalBest struct {

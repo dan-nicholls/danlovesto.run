@@ -46,42 +46,63 @@ func (as *ActivityService) Sync(ctx context.Context) error {
 		}
 
 		act := acts[i]
-		detailedAct, err := as.strava.GetActivityDetails(ctx, act.ID, false)
-		if err != nil {
-			fmt.Printf("failed to fetch activity details: %v\n", err)
+		if act.PrCount > 0 {
+			fmt.Printf("%d PRs detected for id %d. fetching details\n", act.PrCount, act.ID)
+			detailedAct, err := as.strava.GetActivityDetails(ctx, act.ID, false)
+			if err != nil {
+				fmt.Printf("failed to fetch activity details: %v\n", err)
+				continue
+			}
+
+			err = as.AddDetailedActivity(detailedAct)
+			if err != nil {
+
+				fmt.Printf("unable to store detailed activity %d: %v\n", act.ID, err)
+				continue
+			}
+			fmt.Printf("added detailed activity %d to store\n", act.ID)
 			continue
 		}
-		// fmt.Printf("Act[%d]: %+v\n", i, act)
-		err = as.AddActivity(detailedAct)
+
+		err = as.AddActivity(act)
 		if err != nil {
-			fmt.Printf("unable to store fetched activity %d: %v\n", act.ID, err)
+			fmt.Printf("unable to store activity %d: %v\n", act.ID, err)
 			continue
 		}
 		fmt.Printf("added activity %d to store\n", act.ID)
+		continue
 	}
 
 	fmt.Println("Sync Complete.")
 	return nil
 }
 
-func (as *ActivityService) AddActivity(stravaAct contracts.StravaDetailedActivity) error {
+func (as *ActivityService) AddActivity(stravaAct contracts.StravaActivity) error {
+	act := MapStravaToActivity(stravaAct)
+	_, err := as.acts.UpsertActivity(&act)
+	if err != nil {
+		return fmt.Errorf("failed to store act: %w", err)
+	}
+	return nil
+}
+
+func (as *ActivityService) AddDetailedActivity(stravaAct contracts.StravaDetailedActivity) error {
 	// 1. Check PBs
 	pbList := as.DetectPBsFromActivity(stravaAct)
 
 	// 2. Convert to domain Activity
-	act := MapStravaToActivity(stravaAct)
+	act := MapStravaDetailedToActivity(stravaAct)
 
 	// 3. Store Activity
-	id, err := as.acts.UpsertActivity(&act)
+	_, err := as.acts.UpsertActivity(&act)
 	if err != nil {
 		return fmt.Errorf("failed to store act: %w", err)
 	}
-	fmt.Printf("added the activity to db: %v\n", id)
 
 	// 4. Store PBs
 	for i := range pbList {
 		pb := pbList[i]
-		err := as.pbs.SetPB(pb.Distance, pb.Duration, pb.ActivityID)
+		err := as.pbs.SetPB(pb)
 		if err != nil {
 			fmt.Printf("failed to store PB %v for act %v: %v\n", pb, act.ID, err)
 		}
@@ -93,21 +114,58 @@ func (as *ActivityService) DetectPBsFromActivity(a contracts.StravaDetailedActiv
 	pbs := make([]contracts.PersonalBest, 0)
 	for i := range a.BestEfforts {
 		be := a.BestEfforts[i]
+		fmt.Printf("Processing PR: %s - Dist: %d - ElapsedTime: %d - Rank: #%d\n", be.Name, be.Distance, be.ElapsedTime, be.PrRank)
+
 		if be.PrRank != 1 {
 			continue
 		}
 		fmt.Printf("PR for %v found: %d\n", be.Name, be.MovingTime)
 		newPB := contracts.PersonalBest{
-			Distance:   be.Name,
-			Duration:   be.ElapsedTime,
-			ActivityID: a.ID,
+			Name:        be.Name,
+			Distance:    be.Distance,
+			ElapsedTime: be.ElapsedTime,
+			ActivityID:  a.ID,
 		}
 		pbs = append(pbs, newPB)
 	}
 	return pbs
 }
 
-func MapStravaToActivity(stravaAct contracts.StravaDetailedActivity) contracts.Activity {
+func MapStravaToActivity(stravaAct contracts.StravaActivity) contracts.Activity {
+	return contracts.Activity{
+		ID:                 stravaAct.ID,
+		Name:               stravaAct.Name,
+		AthleteID:          stravaAct.Athlete.ID,
+		Distance:           stravaAct.Distance,
+		MovingTime:         stravaAct.MovingTime,
+		ElapsedTime:        stravaAct.ElapsedTime,
+		TotalElevationGain: stravaAct.TotalElevationGain,
+		Type:               stravaAct.Type,
+		StartDate:          stravaAct.StartDate,
+		StartDateLocal:     stravaAct.StartDateLocal,
+		Timezone:           stravaAct.Timezone,
+		UtcOffset:          int(stravaAct.UtcOffset),
+
+		LocationCity:    stravaAct.LocationCity,
+		LocationState:   stravaAct.LocationState,
+		LocationCountry: stravaAct.LocationCountry,
+
+		Map: contracts.ActivityMap{
+			ID:              stravaAct.Map.ID,
+			SummaryPolyline: stravaAct.Map.SummaryPolyline,
+		},
+
+		StartLatLng: stravaAct.StartLatlng,
+		EndLatLng:   stravaAct.EndLatlng,
+
+		AverageSpeed: stravaAct.AverageSpeed,
+		MaxSpeed:     stravaAct.MaxSpeed,
+
+		ElevHigh: stravaAct.ElevHigh,
+		ElevLow:  stravaAct.ElevLow,
+	}
+}
+func MapStravaDetailedToActivity(stravaAct contracts.StravaDetailedActivity) contracts.Activity {
 	return contracts.Activity{
 		ID:                 stravaAct.ID,
 		Name:               stravaAct.Name,
