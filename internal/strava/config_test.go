@@ -165,7 +165,7 @@ func TestLoadStravaConfig_SyncIntervalLessThanZero(t *testing.T) {
 		t.Errorf("error expected, got nil")
 	}
 
-	expError := "STRAVA_SYNC_INTERVAL must not be < 0"
+	expError := "STRAVA_SYNC_INTERVAL must not be <= 0"
 	if err.Error() != expError {
 		t.Errorf("error = %v, want %v", err.Error(), expError)
 	}
@@ -183,7 +183,7 @@ func TestLoadStravaConfig_SyncIntervalIsZero(t *testing.T) {
 		t.Errorf("error expected, got nil")
 	}
 
-	expError := "STRAVA_SYNC_INTERVAL must not be < 0"
+	expError := "STRAVA_SYNC_INTERVAL must not be <= 0"
 	if err.Error() != expError {
 		t.Errorf("error = %v, want %v", err.Error(), expError)
 	}
