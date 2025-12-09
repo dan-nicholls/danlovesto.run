@@ -13,13 +13,17 @@ import (
 	"time"
 )
 
-func run(ctx context.Context, as strava.ActivityService, interval time.Duration) error {
+type Syncer interface {
+	Sync(ctx context.Context) error
+}
+
+func run(ctx context.Context, s Syncer, interval time.Duration) error {
 	if interval <= 0 {
 		return fmt.Errorf("run interval needs to be >= 0")
 	}
 
 	// Initial Sync
-	if err := as.Sync(ctx); err != nil {
+	if err := s.Sync(ctx); err != nil {
 		return fmt.Errorf("failed to complete initial sync: %w\n", err)
 	}
 
@@ -33,7 +37,7 @@ func run(ctx context.Context, as strava.ActivityService, interval time.Duration)
 			fmt.Println("Run complete. Closing...")
 			return nil
 		case <-ticker.C:
-			if err := as.Sync(ctx); err != nil {
+			if err := s.Sync(ctx); err != nil {
 				fmt.Printf("failed to sync: %v\n", err)
 			}
 		}
@@ -79,7 +83,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	if err := run(ctx, *actService, cfg.SyncInterval); err != nil {
+	if err := run(ctx, actService, cfg.SyncInterval); err != nil {
 		fmt.Printf("Error running app: %v", err)
 		os.Exit(1)
 	}
