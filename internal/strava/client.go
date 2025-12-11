@@ -23,9 +23,13 @@ const (
 	oauthTokenURL = "https://www.strava.com/oauth/token"
 )
 
+type HTTPDoer interface {
+	Do(*http.Request) (*http.Response, error)
+}
+
 type Client struct {
 	config     StravaConfig
-	http       *http.Client
+	http       HTTPDoer
 	TokenStore TokenStore
 }
 
@@ -52,44 +56,11 @@ func NewClient(cfg StravaConfig, tokenStore TokenStore) Client {
 	}
 }
 
-func isExpired(exp int64) bool {
-	t := time.Unix(exp, 0)
-	return time.Now().After(t)
-}
-
-func (c *Client) ensureValidToken(ctx context.Context) error {
-	token, err := c.TokenStore.Load("strava")
-	if err != nil {
-		return fmt.Errorf("unable to load token from store: %w", err)
-	}
-
-	if token.RefreshToken == "" {
-		return c.runOAuth(ctx)
-	}
-
-	if token.AccessToken == "" || isExpired(token.ExpiresAt) {
-		return c.refreshAccessToken(ctx)
-	}
-
-	return nil
-}
-
-func (c *Client) RecordJSON(kind string, key string, body []byte) {
-	if os.Getenv("STRAVA_RECORD") != "1" {
-		return
-	}
-
-	dir := "testdata"
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		fmt.Printf("failed to create recording dir: %v\n", err)
-		return
-	}
-
-	filename := filepath.Join(dir, fmt.Sprintf("%s_%s.json", kind, key))
-	if err := os.WriteFile(filename, body, 0o755); err != nil {
-		fmt.Printf("record json write failed: %v\n", err)
-	} else {
-		fmt.Printf("recorded %s_%x.json\n", kind, key)
+func NewClientWithHTTP(cfg StravaConfig, tokenStore TokenStore, httpDoer HTTPDoer) Client {
+	return Client{
+		config:     cfg,
+		http:       httpDoer,
+		TokenStore: tokenStore,
 	}
 }
 
@@ -223,6 +194,121 @@ func (c *Client) FetchAllActivities(ctx context.Context, after, before int64, ma
 	}
 
 	return all, nil
+}
+
+func (c *Client) GetActivityDetails(ctx context.Context, id int64, verbose bool) (contracts.StravaDetailedActivity, error) {
+	var finalRes contracts.StravaDetailedActivity
+
+	if err := ctx.Err(); err != nil {
+		return finalRes, err
+	}
+
+	if id <= 0 {
+		return finalRes, fmt.Errorf("invalid id: %d", id)
+	}
+
+	// Ensure there is a valid auth token
+	if err := c.ensureValidToken(ctx); err != nil {
+		return finalRes, fmt.Errorf("failed to ensure valid token: %w", err)
+	}
+	tokens, err := c.TokenStore.Load("strava")
+	if err != nil {
+		return finalRes, fmt.Errorf("unable to load token from store: %w", err)
+	}
+
+	// Make request a loop in the case of
+	for {
+		select {
+		case <-ctx.Done():
+			return finalRes, ctx.Err()
+		default:
+		}
+
+		// Make requests
+		idStr := strconv.FormatInt(id, 10)
+		u, _ := url.Parse(baseAPI + "/activities/" + idStr)
+		req, _ := http.NewRequest("GET", u.String(), nil)
+		req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
+
+		resp, err := c.http.Do(req)
+		if err != nil {
+			return finalRes, fmt.Errorf("unable to fetch detailed activity: %w", err)
+		}
+
+		if resp.StatusCode == http.StatusUnauthorized {
+			resp.Body.Close()
+			if verbose {
+				fmt.Printf("401 Unauthorized: attempting to refresh token\n")
+			}
+			err := c.refreshAccessToken(ctx)
+			if err != nil {
+				return finalRes, fmt.Errorf("refresh failed: %w", err)
+			}
+
+			tokens, err = c.TokenStore.Load("strava")
+			if err != nil {
+				return finalRes, fmt.Errorf("failed to fetch token from store after refresh: %w", err)
+			}
+
+			req, _ := http.NewRequest("GET", u.String(), nil)
+			req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
+			resp, err = c.http.Do(req)
+			if err != nil {
+				return finalRes, err
+			}
+		}
+
+		// basic rate limiting
+		if resp.StatusCode == http.StatusTooManyRequests {
+			resp.Body.Close()
+			fmt.Printf("429 Rate limited: sleeping 60s\n")
+
+			select {
+			case <-time.After(60 * time.Second):
+				continue
+			case <-ctx.Done():
+				return finalRes, ctx.Err()
+			}
+		}
+
+		// Unexpected Statuses
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return finalRes, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
+		}
+
+		// Start parsing
+		body, err := io.ReadAll(resp.Body)
+
+		resp.Body.Close()
+		if err != nil {
+			return finalRes, fmt.Errorf("failed to parse body: %w", err)
+		}
+
+		c.RecordJSON("details", fmt.Sprintf("_%d", id), body)
+		if err := json.Unmarshal(body, &finalRes); err != nil {
+			return finalRes, fmt.Errorf("failed to marshal detailed activity from body: %w", err)
+		}
+		return finalRes, nil
+	}
+}
+
+func (c *Client) ensureValidToken(ctx context.Context) error {
+	token, err := c.TokenStore.Load("strava")
+	if err != nil {
+		return fmt.Errorf("unable to load token from store: %w", err)
+	}
+
+	if token.RefreshToken == "" {
+		return c.runOAuth(ctx)
+	}
+
+	if token.AccessToken == "" || isExpired(token.ExpiresAt) {
+		return c.refreshAccessToken(ctx)
+	}
+
+	return nil
 }
 
 type TokenResponse struct {
@@ -383,100 +469,26 @@ func (c *Client) runOAuth(ctx context.Context) error {
 	return err
 }
 
-func (c *Client) GetActivityDetails(ctx context.Context, id int64, verbose bool) (contracts.StravaDetailedActivity, error) {
-	var finalRes contracts.StravaDetailedActivity
+func isExpired(exp int64) bool {
+	t := time.Unix(exp, 0)
+	return time.Now().After(t)
+}
 
-	if err := ctx.Err(); err != nil {
-		return finalRes, err
+func (c *Client) RecordJSON(kind string, key string, body []byte) {
+	if os.Getenv("STRAVA_RECORD") != "1" {
+		return
 	}
 
-	if id <= 0 {
-		return finalRes, fmt.Errorf("invalid id: %d", id)
+	dir := "testdata"
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		fmt.Printf("failed to create recording dir: %v\n", err)
+		return
 	}
 
-	// Ensure there is a valid auth token
-	if err := c.ensureValidToken(ctx); err != nil {
-		return finalRes, fmt.Errorf("failed to ensure valid token: %w", err)
-	}
-	tokens, err := c.TokenStore.Load("strava")
-	if err != nil {
-		return finalRes, fmt.Errorf("unable to load token from store: %w", err)
-	}
-
-	// Make request a loop in the case of
-	for {
-		select {
-		case <-ctx.Done():
-			return finalRes, ctx.Err()
-		default:
-		}
-
-		// Make requests
-		idStr := strconv.FormatInt(id, 10)
-		u, _ := url.Parse(baseAPI + "/activities/" + idStr)
-		req, _ := http.NewRequest("GET", u.String(), nil)
-		req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
-
-		resp, err := c.http.Do(req)
-		if err != nil {
-			return finalRes, fmt.Errorf("unable to fetch detailed activity: %w", err)
-		}
-
-		if resp.StatusCode == http.StatusUnauthorized {
-			resp.Body.Close()
-			if verbose {
-				fmt.Printf("401 Unauthorized: attempting to refresh token\n")
-			}
-			err := c.refreshAccessToken(ctx)
-			if err != nil {
-				return finalRes, fmt.Errorf("refresh failed: %w", err)
-			}
-
-			tokens, err = c.TokenStore.Load("strava")
-			if err != nil {
-				return finalRes, fmt.Errorf("failed to fetch token from store after refresh: %w", err)
-			}
-
-			req, _ := http.NewRequest("GET", u.String(), nil)
-			req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
-			resp, err = c.http.Do(req)
-			if err != nil {
-				return finalRes, err
-			}
-		}
-
-		// basic rate limiting
-		if resp.StatusCode == http.StatusTooManyRequests {
-			resp.Body.Close()
-			fmt.Printf("429 Rate limited: sleeping 60s\n")
-
-			select {
-			case <-time.After(60 * time.Second):
-				continue
-			case <-ctx.Done():
-				return finalRes, ctx.Err()
-			}
-		}
-
-		// Unexpected Statuses
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
-			return finalRes, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
-		}
-
-		// Start parsing
-		body, err := io.ReadAll(resp.Body)
-
-		resp.Body.Close()
-		if err != nil {
-			return finalRes, fmt.Errorf("failed to parse body: %w", err)
-		}
-
-		c.RecordJSON("details", fmt.Sprintf("_%d", id), body)
-		if err := json.Unmarshal(body, &finalRes); err != nil {
-			return finalRes, fmt.Errorf("failed to marshal detailed activity from body: %w", err)
-		}
-		return finalRes, nil
+	filename := filepath.Join(dir, fmt.Sprintf("%s_%s.json", kind, key))
+	if err := os.WriteFile(filename, body, 0o755); err != nil {
+		fmt.Printf("record json write failed: %v\n", err)
+	} else {
+		fmt.Printf("recorded %s_%x.json\n", kind, key)
 	}
 }
