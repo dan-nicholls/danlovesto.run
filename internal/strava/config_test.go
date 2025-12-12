@@ -46,7 +46,7 @@ func TestLoadStravaConfig_MissingRequiredValues(t *testing.T) {
 			_, err := LoadStravaConfig()
 
 			if err == nil {
-				t.Errorf("expected error, got nil")
+				t.Fatalf("expected error, got nil")
 			}
 			if err.Error() != tt.exp {
 				t.Errorf("error = %v, want %v", err.Error(), tt.exp)
@@ -97,7 +97,7 @@ func TestLoadStravaConfig_EmptyRequiredValues(t *testing.T) {
 			_, err := LoadStravaConfig()
 
 			if err == nil {
-				t.Errorf("expected error, got nil")
+				t.Fatalf("expected error, got nil")
 			}
 
 			if err.Error() != tt.exp {
@@ -115,12 +115,17 @@ func TestLoadStravaConfig_UseDefaults(t *testing.T) {
 
 	res, err := LoadStravaConfig()
 	if err != nil {
-		t.Errorf("LoadStravaConfig() unexpected error: %v", err)
+		t.Fatalf("LoadStravaConfig() unexpected error: %v", err)
 	}
 
 	expInterval := time.Minute * 15
 	if res.SyncInterval != expInterval {
 		t.Errorf("SyncInterval = %v, want %v", res.SyncInterval, expInterval)
+	}
+
+	expRateLimInterval := time.Minute
+	if res.RateLimitInterval != expRateLimInterval {
+		t.Errorf("RateLimitInterval = %v, want %v", res.RateLimitInterval, expRateLimInterval)
 	}
 }
 
@@ -129,10 +134,11 @@ func TestLoadStravaConfig_SetValues(t *testing.T) {
 	t.Setenv("STRAVA_CLIENT_SECRET", "secret")
 	t.Setenv("STRAVA_REDIRECT_URL", "http://localhost/callback")
 	t.Setenv("STRAVA_SYNC_INTERVAL", "10")
+	t.Setenv("STRAVA_RATE_LIMIT_INTERVAL", "10")
 
 	res, err := LoadStravaConfig()
 	if err != nil {
-		t.Errorf("LoadStravaConfig() unexpected error: %v", err)
+		t.Fatalf("LoadStravaConfig() unexpected error: %v", err)
 	}
 
 	if res.ClientID != "abc" {
@@ -151,6 +157,11 @@ func TestLoadStravaConfig_SetValues(t *testing.T) {
 	if res.SyncInterval != expInterval {
 		t.Errorf("SyncInterval = %v, want %v", res.SyncInterval, expInterval)
 	}
+
+	expRateLimInterval := 10 * time.Minute
+	if res.RateLimitInterval != expRateLimInterval {
+		t.Errorf("RateLimitInterval = %v, want %v", res.RateLimitInterval, expRateLimInterval)
+	}
 }
 
 func TestLoadStravaConfig_SyncIntervalLessThanZero(t *testing.T) {
@@ -162,7 +173,7 @@ func TestLoadStravaConfig_SyncIntervalLessThanZero(t *testing.T) {
 
 	_, err := LoadStravaConfig()
 	if err == nil {
-		t.Errorf("error expected, got nil")
+		t.Fatalf("error expected, got nil")
 	}
 
 	expError := "STRAVA_SYNC_INTERVAL must not be <= 0"
@@ -180,7 +191,7 @@ func TestLoadStravaConfig_SyncIntervalIsZero(t *testing.T) {
 
 	_, err := LoadStravaConfig()
 	if err == nil {
-		t.Errorf("error expected, got nil")
+		t.Fatalf("error expected, got nil")
 	}
 
 	expError := "STRAVA_SYNC_INTERVAL must not be <= 0"
@@ -198,7 +209,7 @@ func TestLoadStravaConfig_SyncIntervalNotANumber(t *testing.T) {
 
 	_, err := LoadStravaConfig()
 	if err == nil {
-		t.Errorf("error expected, got nil")
+		t.Fatalf("error expected, got nil")
 	}
 
 	expError := "failed to parse sync interval"
@@ -216,12 +227,84 @@ func TestLoadStravaConfig_SyncIntervalEmptySpace(t *testing.T) {
 
 	cfg, err := LoadStravaConfig()
 	if err != nil {
-		t.Errorf("LoadStravaConfig() unexpected error: %v", err)
+		t.Fatalf("LoadStravaConfig() unexpected error: %v", err)
 	}
 
 	expInterval := 15 * time.Minute
 	if cfg.SyncInterval != expInterval {
 		t.Errorf("SyncInterval = %v, want = %v", cfg.SyncInterval, expInterval)
+	}
+}
+
+func TestLoadStravaConfig_RateLimitIntervalLessThanZero(t *testing.T) {
+	t.Setenv("STRAVA_CLIENT_ID", "abc")
+	t.Setenv("STRAVA_CLIENT_SECRET", "secret")
+	t.Setenv("STRAVA_REDIRECT_URL", "http://localhost/callback")
+
+	t.Setenv("STRAVA_RATE_LIMIT_INTERVAL", "-10")
+
+	_, err := LoadStravaConfig()
+	if err == nil {
+		t.Fatalf("error expected, got nil")
+	}
+
+	expError := "STRAVA_RATE_LIMIT_INTERVAL must not be <= 0"
+	if err.Error() != expError {
+		t.Errorf("error = %v, want %v", err.Error(), expError)
+	}
+}
+
+func TestLoadStravaConfig_RateLimitIntervalIsZero(t *testing.T) {
+	t.Setenv("STRAVA_CLIENT_ID", "abc")
+	t.Setenv("STRAVA_CLIENT_SECRET", "secret")
+	t.Setenv("STRAVA_REDIRECT_URL", "http://localhost/callback")
+
+	t.Setenv("STRAVA_RATE_LIMIT_INTERVAL", "0")
+
+	_, err := LoadStravaConfig()
+	if err == nil {
+		t.Fatalf("error expected, got nil")
+	}
+
+	expError := "STRAVA_RATE_LIMIT_INTERVAL must not be <= 0"
+	if err.Error() != expError {
+		t.Errorf("error = %v, want %v", err.Error(), expError)
+	}
+}
+
+func TestLoadStravaConfig_RateLimitIntervalNotANumber(t *testing.T) {
+	t.Setenv("STRAVA_CLIENT_ID", "abc")
+	t.Setenv("STRAVA_CLIENT_SECRET", "secret")
+	t.Setenv("STRAVA_REDIRECT_URL", "http://localhost/callback")
+
+	t.Setenv("STRAVA_RATE_LIMIT_INTERVAL", "test")
+
+	_, err := LoadStravaConfig()
+	if err == nil {
+		t.Fatalf("error expected, got nil")
+	}
+
+	expError := "failed to parse rate limit interval"
+	if err.Error() != expError {
+		t.Errorf("error = %v, want %v", err.Error(), expError)
+	}
+}
+
+func TestLoadStravaConfig_RateLimitIntervalEmptySpace(t *testing.T) {
+	t.Setenv("STRAVA_CLIENT_ID", "abc")
+	t.Setenv("STRAVA_CLIENT_SECRET", "secret")
+	t.Setenv("STRAVA_REDIRECT_URL", "http://localhost/callback")
+
+	t.Setenv("STRAVA_RATE_LIMIT_INTERVAL", " ")
+
+	cfg, err := LoadStravaConfig()
+	if err != nil {
+		t.Fatalf("LoadStravaConfig() unexpected error: %v", err)
+	}
+
+	expInterval := 1 * time.Minute // Default value
+	if cfg.RateLimitInterval != expInterval {
+		t.Errorf("RateLimitInterval = %v, want = %v", cfg.RateLimitInterval, expInterval)
 	}
 }
 

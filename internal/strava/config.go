@@ -9,10 +9,11 @@ import (
 )
 
 type StravaConfig struct {
-	ClientID     string
-	ClientSecret string
-	RedirectURL  string
-	SyncInterval time.Duration
+	ClientID          string
+	ClientSecret      string
+	RedirectURL       string
+	SyncInterval      time.Duration
+	RateLimitInterval time.Duration
 }
 
 func (conf *StravaConfig) setValues() error {
@@ -28,11 +29,20 @@ func (conf *StravaConfig) setValues() error {
 		conf.SyncInterval = time.Duration(syncInt) * time.Minute
 	}
 
+	if rateLimitIntervalStr := strings.TrimSpace(os.Getenv("STRAVA_RATE_LIMIT_INTERVAL")); rateLimitIntervalStr != "" {
+		rateLimInt, err := strconv.Atoi(rateLimitIntervalStr)
+		if err != nil {
+			return fmt.Errorf("failed to parse rate limit interval")
+		}
+		conf.RateLimitInterval = time.Duration(rateLimInt) * time.Minute
+	}
+
 	return nil
 }
 
 func (conf *StravaConfig) setDefaults() {
 	conf.SyncInterval = 15 * time.Minute
+	conf.RateLimitInterval = 1 * time.Minute
 }
 
 func (conf *StravaConfig) Validate() error {
@@ -50,6 +60,10 @@ func (conf *StravaConfig) Validate() error {
 
 	if conf.SyncInterval <= 0 {
 		return fmt.Errorf("STRAVA_SYNC_INTERVAL must not be <= 0")
+	}
+
+	if conf.RateLimitInterval <= 0 {
+		return fmt.Errorf("STRAVA_RATE_LIMIT_INTERVAL must not be <= 0")
 	}
 
 	return nil
