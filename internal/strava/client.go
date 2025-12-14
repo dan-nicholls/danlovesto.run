@@ -147,7 +147,7 @@ func (c *Client) FetchAllActivities(ctx context.Context, after, before int64, ma
 			fmt.Printf("429 Rate limited: sleeping 60s\n")
 
 			select {
-			case <-time.After(60 * time.Second):
+			case <-time.After(c.config.RateLimitInterval):
 				continue
 			case <-ctx.Done():
 				return all, ctx.Err()
@@ -160,24 +160,24 @@ func (c *Client) FetchAllActivities(ctx context.Context, after, before int64, ma
 			return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
 		}
 
-		// var items []contracts.StravaActivity
-		// if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
-		// 	resp.Body.Close()
-		// 	return nil, fmt.Errorf("failed to parse response to json: %w", err)
-		// }
-		// resp.Body.Close()
-		body, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse body: %w", err)
-		}
-
-		c.RecordJSON("activities", fmt.Sprintf("page_%d", page), body)
-
 		var items []contracts.StravaActivity
-		if err := json.Unmarshal(body, &items); err != nil {
-			return nil, err
+		if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
+			resp.Body.Close()
+			return nil, fmt.Errorf("decoding activities: %w", err)
 		}
+		resp.Body.Close()
+		// body, err := io.ReadAll(resp.Body)
+		// resp.Body.Close()
+		// if err != nil {
+		// 	return nil, fmt.Errorf("unable to parse body: %w", err)
+		// }
+		//
+		// c.RecordJSON("activities", fmt.Sprintf("page_%d", page), body)
+		//
+		// var items []contracts.StravaActivity
+		// if err := json.Unmarshal(body, &items); err != nil {
+		// 	return nil, err
+		// }
 
 		if len(items) == 0 {
 			if verbose {
@@ -264,7 +264,7 @@ func (c *Client) GetActivityDetails(ctx context.Context, id int64, verbose bool)
 			fmt.Printf("429 Rate limited: sleeping 60s\n")
 
 			select {
-			case <-time.After(60 * time.Second):
+			case <-time.After(c.config.RateLimitInterval):
 				continue
 			case <-ctx.Done():
 				return finalRes, ctx.Err()
