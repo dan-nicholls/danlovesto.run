@@ -144,7 +144,7 @@ func (c *Client) FetchAllActivities(ctx context.Context, after, before int64, ma
 		// Basic rate-limit backoff. Limited to 100req / 15min
 		if resp.StatusCode == http.StatusTooManyRequests {
 			resp.Body.Close()
-			fmt.Printf("429 Rate limited: sleeping 60s\n")
+			fmt.Printf("429 Rate limited: sleeping %.2fs\n", c.config.RateLimitInterval.Seconds())
 
 			select {
 			case <-time.After(c.config.RateLimitInterval):
@@ -261,7 +261,7 @@ func (c *Client) GetActivityDetails(ctx context.Context, id int64, verbose bool)
 		// basic rate limiting
 		if resp.StatusCode == http.StatusTooManyRequests {
 			resp.Body.Close()
-			fmt.Printf("429 Rate limited: sleeping 60s\n")
+			fmt.Printf("429 Rate limited: sleeping %.2fs\n", c.config.RateLimitInterval.Seconds())
 
 			select {
 			case <-time.After(c.config.RateLimitInterval):
