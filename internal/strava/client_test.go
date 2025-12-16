@@ -44,6 +44,7 @@ type fakeHTTPDoer struct {
 	responses []*http.Response
 	err       error
 	calls     []*http.Request
+	timeout   time.Duration
 }
 
 func (f *fakeHTTPDoer) Do(req *http.Request) (*http.Response, error) {
@@ -56,6 +57,7 @@ func (f *fakeHTTPDoer) Do(req *http.Request) (*http.Response, error) {
 	}
 	r := f.responses[0]
 	f.responses = f.responses[1:]
+	time.Sleep(f.timeout)
 	return r, nil
 }
 
@@ -314,15 +316,299 @@ func TestFetchAllActivities_401_RefreshThenRetry_Success(t *testing.T) {
 		t.Errorf("expected %d http calls, got %d", want, got)
 	}
 }
-func TestFetchAllActivities_401_RefreshFails_ReturnsError(t *testing.T) {}
-func TestFetchAllActivities_429_ThenRetry_Success(t *testing.T)         {}
+
+func TestFetchAllActivities_401_RefreshFails_ReturnsError(t *testing.T) {
+	ts := &fakeTokenStore{
+		tokens: map[string]Token{
+			"strava": {
+				AccessToken:  "EXPIRED",
+				RefreshToken: "OLD_REFRESH",
+				ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	}
+
+	cfg := StravaConfig{ClientID: "id", ClientSecret: "secret"}
+	fakeHttp := &scriptedHTTPDoer{}
+	fakeHttp.reqFn = func(req *http.Request) (*http.Response, error) {
+		url := req.URL.String()
+
+		// First Call
+		if strings.Contains(url, "/athlete/activities") && len(fakeHttp.calls) == 1 {
+			return jsonResp(401, `{"message": "unauthorized"}`), nil
+		}
+
+		// Second Call
+		if strings.Contains(url, "/oauth/token") && len(fakeHttp.calls) == 2 {
+			return jsonResp(500, `{ "message": "error" }`), nil
+		}
+
+		return nil, fmt.Errorf("unexpected request: %s", url)
+	}
+
+	client := NewClientWithHTTP(cfg, ts, fakeHttp)
+
+	ctx := context.Background()
+	_, err := client.FetchAllActivities(ctx, 0, 0, 0, false)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	if got, want := err.Error(), "refresh failed"; !strings.Contains(got, want) {
+		t.Errorf("expected error to contain %q: %q", want, got)
+	}
+
+	if got, want := len(fakeHttp.calls), 2; got != want {
+		t.Errorf("expected %d http calls, got %d", want, got)
+	}
+}
+
+func TestFetchAllActivities_429_ThenRetry_Success(t *testing.T) {
+	ts := &fakeTokenStore{
+		tokens: map[string]Token{
+			"strava": {
+				AccessToken:  "ACCESS",
+				RefreshToken: "REFRESH",
+				ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	}
+	cfg := StravaConfig{ClientID: "id", ClientSecret: "secret"}
+
+	fakeHttp := &scriptedHTTPDoer{}
+	fakeHttp.reqFn = func(req *http.Request) (*http.Response, error) {
+		url := req.URL.String()
+
+		// First Call
+		if strings.Contains(url, "/athlete/activities") && len(fakeHttp.calls) == 1 {
+			return jsonResp(429, `{"message": "too many requests"}`), nil
+		}
+
+		// Second Call
+		if strings.Contains(url, "/athlete/activities") && len(fakeHttp.calls) == 2 {
+			return jsonResp(200, `[{"id": 1}, {"id": 2}]`), nil
+		}
+
+		if strings.Contains(url, "/athlete/activities") && len(fakeHttp.calls) == 3 {
+			return jsonResp(200, `[]`), nil
+		}
+		return nil, fmt.Errorf("unexpected request: %s", url)
+	}
+
+	client := NewClientWithHTTP(cfg, ts, fakeHttp)
+
+	ctx := context.Background()
+	acts, err := client.FetchAllActivities(ctx, 0, 0, 0, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got, want := len(acts), 2; got != want {
+		t.Errorf("expected %d acts, got %d", want, got)
+	}
+
+	if got, want := len(fakeHttp.calls), 3; got != want {
+		t.Errorf("expected %d http calls, got %d", want, got)
+	}
+}
 
 // FetchAllActs - Error Paths
-func TestFetchAllActivities_HttpDoError_ReturnsError(t *testing.T)           {}
-func TestFetchAllActivities_Non2xxStatus_ReturnsError(t *testing.T)          {}
-func TestFetchAllActivities_InvalidJSON_ReturnsError(t *testing.T)           {}
-func TestFetchAllActivities_ContextCancelledBeforeFirstRequest(t *testing.T) {}
-func TestFetchAllActivities_ContextCancelledInLoop(t *testing.T)             {}
+func TestFetchAllActivities_HttpDoError_ReturnsError(t *testing.T) {
+	cfg := StravaConfig{
+		ClientID:     "CLIENT",
+		ClientSecret: "SECRET",
+	}
+	ts := &fakeTokenStore{
+		tokens: map[string]Token{
+			"strava": {
+				AccessToken:  "ACCESS",
+				RefreshToken: "REFRESH",
+				ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	}
+	fakeHttp := &fakeHTTPDoer{
+		responses: []*http.Response{
+			jsonResp(500, `{"message": "server error"}`),
+		},
+		err: fmt.Errorf("http client error"),
+	}
+
+	client := NewClientWithHTTP(cfg, ts, fakeHttp)
+
+	ctx := context.Background()
+	_, err := client.FetchAllActivities(ctx, 0, 0, 0, false)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	expectedErr := "failed fetching strava activities"
+	if !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("Expected error to contain %q, got %q", expectedErr, err.Error())
+	}
+
+	if got, want := len(fakeHttp.calls), 1; got != want {
+		t.Errorf("Expected %d https calls, got %d", want, got)
+	}
+}
+
+func TestFetchAllActivities_Non2xxStatus_ReturnsError(t *testing.T) {
+	cfg := StravaConfig{
+		ClientID:     "CLIENT",
+		ClientSecret: "SECRET",
+	}
+	ts := &fakeTokenStore{
+		tokens: map[string]Token{
+			"strava": {
+				AccessToken:  "ACCESS",
+				RefreshToken: "REFRESH",
+				ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	}
+	fakeHttp := &fakeHTTPDoer{
+		responses: []*http.Response{
+			jsonResp(500, `{"message": "server error"}`),
+		},
+	}
+
+	client := NewClientWithHTTP(cfg, ts, fakeHttp)
+
+	ctx := context.Background()
+	_, err := client.FetchAllActivities(ctx, 0, 0, 0, false)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	expectedErr := "unexpected status"
+	if !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("Expected error to contain %q, got %q", expectedErr, err.Error())
+	}
+
+	if got, want := len(fakeHttp.calls), 1; got != want {
+		t.Errorf("Expected %d https calls, got %d", want, got)
+	}
+}
+
+func TestFetchAllActivities_InvalidJSON_ReturnsError(t *testing.T) {
+	cfg := StravaConfig{
+		ClientID:     "CLIENT",
+		ClientSecret: "SECRET",
+	}
+	ts := &fakeTokenStore{
+		tokens: map[string]Token{
+			"strava": {
+				AccessToken:  "access",
+				RefreshToken: "refresh",
+				ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	}
+	fakeHttp := &fakeHTTPDoer{
+		responses: []*http.Response{
+			jsonResp(200, `{"message": "invalid json "`),
+		},
+	}
+
+	client := NewClientWithHTTP(cfg, ts, fakeHttp)
+
+	ctx := context.Background()
+	_, err := client.FetchAllActivities(ctx, 0, 0, 0, false)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	if got, want := err.Error(), "decoding activities"; !strings.Contains(got, want) {
+		t.Errorf("expected error to contain %q, got %q", want, got)
+	}
+
+	if got, want := len(fakeHttp.calls), 1; got != want {
+		t.Errorf("expected %d http client calls, got %d", want, got)
+	}
+
+}
+
+func TestFetchAllActivities_ContextCancelledBeforeFirstRequest(t *testing.T) {
+	cfg := StravaConfig{
+		ClientID:     "CLIENT",
+		ClientSecret: "SECRET",
+	}
+	ts := &fakeTokenStore{
+		tokens: map[string]Token{
+			"strava": {
+				AccessToken:  "access",
+				RefreshToken: "refresh",
+				ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	}
+	fakeHttp := &fakeHTTPDoer{
+		responses: []*http.Response{
+			jsonResp(200, `{"message": "invalid json "`),
+		},
+	}
+
+	client := NewClientWithHTTP(cfg, ts, fakeHttp)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := client.FetchAllActivities(ctx, 0, 0, 0, false)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	if got, want := err.Error(), "context canceled"; !strings.Contains(got, want) {
+		t.Errorf("expected error containing %q, got %q", want, got)
+	}
+}
+
+func TestFetchAllActivities_ContextCancelledInLoop(t *testing.T) {
+	cfg := StravaConfig{
+		ClientID:     "CLIENT",
+		ClientSecret: "SECRET",
+	}
+	ts := &fakeTokenStore{
+		tokens: map[string]Token{
+			"strava": {
+				AccessToken:  "ACCESS",
+				RefreshToken: "REFRESH",
+				ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	}
+	fakeHttp := &fakeHTTPDoer{
+		responses: []*http.Response{
+			jsonResp(200, `[{"ID": 1}, {"ID": 2}]`),
+			jsonResp(200, `[{"ID": 3}, {"ID": 4}]`),
+			jsonResp(200, `[{"ID": 5}, {"ID": 6}]`),
+			jsonResp(200, `[]`),
+		},
+		timeout: time.Duration(10 * time.Second),
+	}
+
+	client := NewClientWithHTTP(cfg, ts, fakeHttp)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		time.Sleep(15 * time.Millisecond)
+		cancel()
+	}()
+
+	acts, err := client.FetchAllActivities(ctx, 0, 0, 0, false)
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	if got, want := err.Error(), "context canceled"; !strings.Contains(got, want) {
+		t.Errorf("expected error containing %q, got %q", want, got)
+	}
+
+	if got, want := len(acts), 2; got != want {
+		t.Errorf("expected %d acts, got %d", want, got)
+	}
+}
 
 // GetActivityDetails - Happy Paths
 func TestGetActivityDetails_Success(t *testing.T) {}
