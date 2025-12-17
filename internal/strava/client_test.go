@@ -583,7 +583,7 @@ func TestFetchAllActivities_ContextCancelledInLoop(t *testing.T) {
 			jsonResp(200, `[{"ID": 5}, {"ID": 6}]`),
 			jsonResp(200, `[]`),
 		},
-		timeout: time.Duration(10 * time.Second),
+		timeout: time.Duration(10 * time.Millisecond),
 	}
 
 	client := NewClientWithHTTP(cfg, ts, fakeHttp)
@@ -605,26 +605,381 @@ func TestFetchAllActivities_ContextCancelledInLoop(t *testing.T) {
 		t.Errorf("expected error containing %q, got %q", want, got)
 	}
 
-	if got, want := len(acts), 2; got != want {
+	if got, want := len(acts), 4; got != want {
 		t.Errorf("expected %d acts, got %d", want, got)
 	}
 }
 
 // GetActivityDetails - Happy Paths
-func TestGetActivityDetails_Success(t *testing.T) {}
+func TestGetActivityDetails_Success(t *testing.T) {
+
+	cfg := StravaConfig{ClientID: "CLIENT", ClientSecret: "SECRET"}
+	tokenStore := &fakeTokenStore{
+		tokens: map[string]Token{
+			"strava": Token{
+				AccessToken:  "ACCESS",
+				RefreshToken: "REFRESH",
+				ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	}
+	fakeHTTP := &fakeHTTPDoer{
+		responses: []*http.Response{
+			jsonResp(200, `{"id": 1}`),
+		},
+	}
+	client := NewClientWithHTTP(cfg, tokenStore, fakeHTTP)
+
+	ctx := context.Background()
+	act, err := client.GetActivityDetails(ctx, 1, false)
+
+	if err != nil {
+		t.Fatalf("unexpected error occured: %v", err)
+	}
+
+	if got, want := act.ID, int64(1); got != want {
+		t.Errorf("expected activity id %d, got %d", want, got)
+	}
+
+	if got, want := len(fakeHTTP.calls), 1; got != want {
+		t.Fatalf("expected %d http calls, got %d", want, got)
+	}
+
+	req := fakeHTTP.calls[0]
+	if got, want := req.Header.Get("Authorization"), "Bearer ACCESS"; got != want {
+		t.Errorf("expected Authorization=%s, got %s", want, got)
+	}
+
+	if got, want := req.URL.Path, "/api/v3/activities/1"; got != want {
+		t.Errorf("expected path %q, got %q", want, got)
+	}
+}
 
 // GetActivityDetails - Error Paths
-func TestGetActivityDetails_InvalidID_ReturnsError(t *testing.T)             {}
-func TestGetActivityDetails_ContextCancelledBeforeFirstRequest(t *testing.T) {}
-func TestGetActivityDetails_ContextCancelledInLoop(t *testing.T)             {}
-func TestGetActivityDetails_HttpDoError_ReturnsError(t *testing.T)           {}
-func TestGetActivityDetails_Non2xxStatus_ReturnsError(t *testing.T)          {}
-func TestGetActivityDetails_InvalidJSON_ReturnsError(t *testing.T)           {}
+func TestGetActivityDetails_InvalidID_ReturnsError(t *testing.T) {
+	cfg := StravaConfig{ClientID: "CLIENT", ClientSecret: "SECRET"}
+	tokenStore := &fakeTokenStore{}
+	fakeHTTP := &fakeHTTPDoer{}
+
+	client := NewClientWithHTTP(cfg, tokenStore, fakeHTTP)
+	ctx := context.Background()
+	_, err := client.GetActivityDetails(ctx, 0, false)
+
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	if got, want := err.Error(), "invalid id"; !strings.Contains(got, want) {
+		t.Fatalf("expected error containing %q, got %q", want, got)
+	}
+
+	if got, want := len(fakeHTTP.calls), 0; got != want {
+		t.Fatalf("expected %d http calls, got %d", want, got)
+	}
+}
+func TestGetActivityDetails_ContextCancelledBeforeFirstRequest(t *testing.T) {
+	cfg := StravaConfig{ClientID: "CLIENT", ClientSecret: "SECRET"}
+	tokenStore := &fakeTokenStore{}
+	fakeHTTP := &fakeHTTPDoer{}
+
+	client := NewClientWithHTTP(cfg, tokenStore, fakeHTTP)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := client.GetActivityDetails(ctx, 1, false)
+
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	if got, want := err.Error(), "context canceled"; !strings.Contains(got, want) {
+		t.Fatalf("expected error containing %q, got %q", want, got)
+	}
+
+	if got, want := len(fakeHTTP.calls), 0; got != want {
+		t.Fatalf("expected %d http calls, got %d", want, got)
+	}
+}
+
+func TestGetActivityDetails_ContextCancelledInLoop(t *testing.T) {
+	cfg := StravaConfig{ClientID: "CLIENT", ClientSecret: "SECRET", RateLimitInterval: 50 * time.Millisecond}
+	tokenStore := &fakeTokenStore{
+		tokens: map[string]Token{
+			"strava": {
+				AccessToken:  "ACCESS",
+				RefreshToken: "REFRESH",
+				ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	}
+	fakeHTTP := &fakeHTTPDoer{
+		responses: []*http.Response{
+			jsonResp(429, `{"message": "too many requests"}`),
+		},
+	}
+
+	client := NewClientWithHTTP(cfg, tokenStore, fakeHTTP)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+	}()
+
+	_, err := client.GetActivityDetails(ctx, 1, false)
+
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	if got, want := err.Error(), "context canceled"; !strings.Contains(got, want) {
+		t.Fatalf("expected error containing %q, got %q", want, got)
+	}
+
+	if got, want := len(fakeHTTP.calls), 1; got != want {
+		t.Fatalf("expected %d http call, got %d", want, got)
+	}
+}
+
+func TestGetActivityDetails_HttpDoError_ReturnsError(t *testing.T) {
+	cfg := StravaConfig{ClientID: "CLIENT", ClientSecret: "SECRET"}
+	tokenStore := &fakeTokenStore{
+		tokens: map[string]Token{
+			"strava": {
+				AccessToken:  "ACCESS",
+				RefreshToken: "REFRESH",
+				ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	}
+	fakeHTTP := &fakeHTTPDoer{
+		err: fmt.Errorf("http client error"),
+	}
+
+	client := NewClientWithHTTP(cfg, tokenStore, fakeHTTP)
+	ctx := context.Background()
+	_, err := client.GetActivityDetails(ctx, 1, false)
+
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	if got, want := err.Error(), "unable to fetch detailed activity"; !strings.Contains(got, want) {
+		t.Fatalf("expected error containing %q, got %q", want, got)
+	}
+
+	if got, want := len(fakeHTTP.calls), 1; got != want {
+		t.Fatalf("expected %d http call, got %d", want, got)
+	}
+}
+
+func TestGetActivityDetails_Non2xxStatus_ReturnsError(t *testing.T) {
+	cfg := StravaConfig{ClientID: "CLIENT", ClientSecret: "SECRET"}
+	tokenStore := &fakeTokenStore{
+		tokens: map[string]Token{
+			"strava": {
+				AccessToken:  "ACCESS",
+				RefreshToken: "REFRESH",
+				ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	}
+	fakeHTTP := &fakeHTTPDoer{
+		responses: []*http.Response{
+			jsonResp(500, `{"message": "server error"}`),
+		},
+	}
+
+	client := NewClientWithHTTP(cfg, tokenStore, fakeHTTP)
+	ctx := context.Background()
+	_, err := client.GetActivityDetails(ctx, 1, false)
+
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	if got, want := err.Error(), "unexpected status"; !strings.Contains(got, want) {
+		t.Fatalf("expected error containing %q, got %q", want, got)
+	}
+
+	if got, want := len(fakeHTTP.calls), 1; got != want {
+		t.Fatalf("expected %d http call, got %d", want, got)
+	}
+}
+
+func TestGetActivityDetails_InvalidJSON_ReturnsError(t *testing.T) {
+	cfg := StravaConfig{ClientID: "CLIENT", ClientSecret: "SECRET"}
+	tokenStore := &fakeTokenStore{
+		tokens: map[string]Token{
+			"strava": {
+				AccessToken:  "ACCESS",
+				RefreshToken: "REFRESH",
+				ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	}
+	fakeHTTP := &fakeHTTPDoer{
+		responses: []*http.Response{
+			jsonResp(200, `{"id":`),
+		},
+	}
+
+	client := NewClientWithHTTP(cfg, tokenStore, fakeHTTP)
+	ctx := context.Background()
+	_, err := client.GetActivityDetails(ctx, 1, false)
+
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	if got, want := err.Error(), "failed to marshal detailed activity"; !strings.Contains(got, want) {
+		t.Fatalf("expected error containing %q, got %q", want, got)
+	}
+
+	if got, want := len(fakeHTTP.calls), 1; got != want {
+		t.Fatalf("expected %d http call, got %d", want, got)
+	}
+}
 
 // GetActivityDetails - Auth/Refresh/RateLimiting
-func TestGetActivityDetails_401_RefreshThenRetry_Success(t *testing.T) {}
-func TestGetActivityDetails_401_RefreshThenRetry_Fail(t *testing.T)    {}
-func TestGetActivityDetails_429_ThenRetry_Success(t *testing.T)        {}
+func TestGetActivityDetails_401_RefreshThenRetry_Success(t *testing.T) {
+	tokenStore := &fakeTokenStore{
+		tokens: map[string]Token{
+			"strava": {
+				AccessToken:  "EXPIRED",
+				RefreshToken: "OLD_REFRESH",
+				ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	}
+	cfg := StravaConfig{ClientID: "CLIENT", ClientSecret: "SECRET"}
+	fakeHTTP := &scriptedHTTPDoer{}
+	fakeHTTP.reqFn = func(req *http.Request) (*http.Response, error) {
+		url := req.URL.String()
+
+		if strings.Contains(url, "/activities/1") && len(fakeHTTP.calls) == 1 {
+			return jsonResp(401, `{"message": "unauthorized"}`), nil
+		}
+
+		if strings.Contains(url, "/oauth/token") && len(fakeHTTP.calls) == 2 {
+			return jsonResp(200, `{
+				"access_token": "ACCESS",
+				"refresh_token": "NEW_REFRESH",
+				"token_type": "Bearer",
+				"expires_at": 4102444800,
+				"expires_in": 21600
+			}`), nil
+		}
+
+		if strings.Contains(url, "/activities/1") && len(fakeHTTP.calls) == 3 {
+			return jsonResp(200, `{"id": 1}`), nil
+		}
+
+		return nil, fmt.Errorf("unexpected request: %s", url)
+	}
+
+	client := NewClientWithHTTP(cfg, tokenStore, fakeHTTP)
+	ctx := context.Background()
+	act, err := client.GetActivityDetails(ctx, 1, false)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got, want := act.ID, int64(1); got != want {
+		t.Fatalf("expected activity id %d, got %d", want, got)
+	}
+
+	if got, want := len(fakeHTTP.calls), 3; got != want {
+		t.Fatalf("expected %d http calls, got %d", want, got)
+	}
+
+	tok, _ := tokenStore.Load("strava")
+	if got, want := tok.AccessToken, "ACCESS"; got != want {
+		t.Fatalf("expected access token %q, got %q", want, got)
+	}
+
+	if got, want := tok.RefreshToken, "NEW_REFRESH"; got != want {
+		t.Fatalf("expected refresh token %q, got %q", want, got)
+	}
+}
+
+func TestGetActivityDetails_401_RefreshThenRetry_Fail(t *testing.T) {
+	tokenStore := &fakeTokenStore{
+		tokens: map[string]Token{
+			"strava": {
+				AccessToken:  "EXPIRED",
+				RefreshToken: "OLD_REFRESH",
+				ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	}
+	cfg := StravaConfig{ClientID: "CLIENT", ClientSecret: "SECRET"}
+	fakeHTTP := &scriptedHTTPDoer{}
+	fakeHTTP.reqFn = func(req *http.Request) (*http.Response, error) {
+		url := req.URL.String()
+
+		if strings.Contains(url, "/activities/1") && len(fakeHTTP.calls) == 1 {
+			return jsonResp(401, `{"message": "unauthorized"}`), nil
+		}
+
+		if strings.Contains(url, "/oauth/token") && len(fakeHTTP.calls) == 2 {
+			return jsonResp(500, `{"message": "error"}`), nil
+		}
+
+		return nil, fmt.Errorf("unexpected request: %s", url)
+	}
+
+	client := NewClientWithHTTP(cfg, tokenStore, fakeHTTP)
+	ctx := context.Background()
+	_, err := client.GetActivityDetails(ctx, 1, false)
+
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	if got, want := err.Error(), "refresh failed"; !strings.Contains(got, want) {
+		t.Fatalf("expected error containing %q, got %q", want, got)
+	}
+
+	if got, want := len(fakeHTTP.calls), 2; got != want {
+		t.Fatalf("expected %d http calls, got %d", want, got)
+	}
+}
+
+func TestGetActivityDetails_429_ThenRetry_Success(t *testing.T) {
+	cfg := StravaConfig{ClientID: "CLIENT", ClientSecret: "SECRET", RateLimitInterval: 1 * time.Millisecond}
+	tokenStore := &fakeTokenStore{
+		tokens: map[string]Token{
+			"strava": {
+				AccessToken:  "ACCESS",
+				RefreshToken: "REFRESH",
+				ExpiresAt:    time.Now().Add(time.Hour).Unix(),
+			},
+		},
+	}
+	fakeHTTP := &fakeHTTPDoer{
+		responses: []*http.Response{
+			jsonResp(429, `{"message": "too many requests"}`),
+			jsonResp(200, `{"id": 1}`),
+		},
+	}
+
+	client := NewClientWithHTTP(cfg, tokenStore, fakeHTTP)
+	ctx := context.Background()
+	act, err := client.GetActivityDetails(ctx, 1, false)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got, want := act.ID, int64(1); got != want {
+		t.Fatalf("expected activity id %d, got %d", want, got)
+	}
+
+	if got, want := len(fakeHTTP.calls), 2; got != want {
+		t.Fatalf("expected %d http calls, got %d", want, got)
+	}
+}
 
 // ensureValidToken
 func TestEnsureValidToken_ErrorLoadingTokenFromStore(t *testing.T)     {}
