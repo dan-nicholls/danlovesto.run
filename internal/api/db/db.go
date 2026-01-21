@@ -44,9 +44,6 @@ func (s *Store) EnsureSchemas() error {
 	if _, err := s.Conn.Exec(personalBestsTable); err != nil {
 		return err
 	}
-	if _, err := s.Conn.Exec(seedPBs); err != nil {
-		return err
-	}
 	if _, err := s.Conn.Exec(tokenTable); err != nil {
 		return err
 	}

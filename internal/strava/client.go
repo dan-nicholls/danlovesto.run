@@ -1,17 +1,20 @@
 package strava
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/dan-nicholls/danlovesto.run/internal/api/db"
 	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
 	"golang.org/x/oauth2"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -21,11 +24,14 @@ const (
 	oauthTokenURL = "https://www.strava.com/oauth/token"
 )
 
+type HTTPDoer interface {
+	Do(*http.Request) (*http.Response, error)
+}
+
 type Client struct {
-	config        StravaConfig
-	http          *http.Client
-	TokenStore    TokenStore
-	ActivityStore db.ActivityStore
+	config     StravaConfig
+	http       HTTPDoer
+	TokenStore TokenStore
 }
 
 type Token struct {
@@ -34,7 +40,7 @@ type Token struct {
 	ExpiresAt    int64
 }
 
-func NewClient(cfg StravaConfig, tokenStore TokenStore, activityStore db.ActivityStore) Client {
+func NewClient(cfg StravaConfig, tokenStore TokenStore) Client {
 	return Client{
 		config: cfg,
 		http: &http.Client{
@@ -44,73 +50,25 @@ func NewClient(cfg StravaConfig, tokenStore TokenStore, activityStore db.Activit
 					Timeout: time.Second,
 				}).DialContext,
 				TLSHandshakeTimeout:   time.Second,
-				ResponseHeaderTimeout: 3 * time.Second,
+				ResponseHeaderTimeout: 10 * time.Second,
 			},
 		},
-		TokenStore:    tokenStore,
-		ActivityStore: activityStore,
+		TokenStore: tokenStore,
 	}
 }
 
-func (c *Client) Sync(ctx context.Context) error {
-	fmt.Println("Starting Sync...")
-
-	if err := ctx.Err(); err != nil {
-		return err
+func NewClientWithHTTP(cfg StravaConfig, tokenStore TokenStore, httpDoer HTTPDoer) Client {
+	return Client{
+		config:     cfg,
+		http:       httpDoer,
+		TokenStore: tokenStore,
 	}
-
-	last, err := c.ActivityStore.LatestActivityStart()
-	if err != nil {
-		return fmt.Errorf("unable to fetch last activity start: %e", err)
-	}
-	fmt.Printf("Last Activity: %s (UNIX: %d)\n", last.Local().Format("2006-01-02 15:04:05"), last.Unix())
-
-	acts, err := c.FetchAllActivities(ctx, last.Unix(), 0, 0, false)
-	if err != nil {
-		return fmt.Errorf("Error fetching acts: %w", err)
-	}
-
-	for i := range acts {
-		act := acts[i]
-		// fmt.Printf("Act[%d]: %+v\n", i, act)
-		id, err := c.ActivityStore.CreateActivity(&act)
-		if err != nil {
-			fmt.Printf("unable to store fetched activity %d: %e\n", act.ID, err)
-			continue
-		}
-		fmt.Printf("added activity %d to store\n", id)
-	}
-
-	fmt.Println("Sync Complete.")
-	return nil
 }
 
-func isExpired(exp int64) bool {
-	t := time.Unix(exp, 0)
-	return time.Now().After(t)
-}
-
-func (c *Client) ensureValidToken(ctx context.Context) error {
-	token, err := c.TokenStore.Load("strava")
-	if err != nil {
-		return fmt.Errorf("unable to load token from store: %w", err)
-	}
-
-	if token.RefreshToken == "" {
-		return c.runOAuth(ctx)
-	}
-
-	if token.AccessToken == "" || isExpired(token.ExpiresAt) {
-		return c.refreshAccessToken(ctx)
-	}
-
-	return nil
-}
-
-func (c *Client) FetchAllActivities(ctx context.Context, after, before int64, maxPages int, verbose bool) ([]contracts.Activity, error) {
+func (c *Client) FetchAllActivities(ctx context.Context, after, before int64, maxPages int, verbose bool) ([]contracts.StravaActivity, error) {
 	perPage := 200
 	page := 1
-	var all []contracts.Activity
+	var all []contracts.StravaActivity
 
 	// Ensure Valid Token
 	if err := c.ensureValidToken(ctx); err != nil {
@@ -122,6 +80,13 @@ func (c *Client) FetchAllActivities(ctx context.Context, after, before int64, ma
 	}
 
 	for {
+		// Check broken ctx
+		select {
+		case <-ctx.Done():
+			return all, ctx.Err()
+		default:
+		}
+
 		if maxPages > 0 && page > maxPages {
 			if verbose {
 				fmt.Printf("hit max-pages=%d, stopping\n", maxPages)
@@ -180,11 +145,14 @@ func (c *Client) FetchAllActivities(ctx context.Context, after, before int64, ma
 		// Basic rate-limit backoff. Limited to 100req / 15min
 		if resp.StatusCode == http.StatusTooManyRequests {
 			resp.Body.Close()
-			if verbose {
-				fmt.Printf("429 Rate limited: sleeping 60s\n")
+			fmt.Printf("429 Rate limited: sleeping %.2fs\n", c.config.RateLimitInterval.Seconds())
+
+			select {
+			case <-time.After(c.config.RateLimitInterval):
+				continue
+			case <-ctx.Done():
+				return all, ctx.Err()
 			}
-			time.Sleep(60 * time.Second)
-			continue
 		}
 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -193,12 +161,24 @@ func (c *Client) FetchAllActivities(ctx context.Context, after, before int64, ma
 			return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
 		}
 
-		var items []contracts.Activity
+		var items []contracts.StravaActivity
 		if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
 			resp.Body.Close()
-			return nil, err
+			return nil, fmt.Errorf("decoding activities: %w", err)
 		}
 		resp.Body.Close()
+		// body, err := io.ReadAll(resp.Body)
+		// resp.Body.Close()
+		// if err != nil {
+		// 	return nil, fmt.Errorf("unable to parse body: %w", err)
+		// }
+		//
+		// c.RecordJSON("activities", fmt.Sprintf("page_%d", page), body)
+		//
+		// var items []contracts.StravaActivity
+		// if err := json.Unmarshal(body, &items); err != nil {
+		// 	return nil, err
+		// }
 
 		if len(items) == 0 {
 			if verbose {
@@ -215,6 +195,121 @@ func (c *Client) FetchAllActivities(ctx context.Context, after, before int64, ma
 	}
 
 	return all, nil
+}
+
+func (c *Client) GetActivityDetails(ctx context.Context, id int64, verbose bool) (contracts.StravaDetailedActivity, error) {
+	var finalRes contracts.StravaDetailedActivity
+
+	if err := ctx.Err(); err != nil {
+		return finalRes, err
+	}
+
+	if id <= 0 {
+		return finalRes, fmt.Errorf("invalid id: %d", id)
+	}
+
+	// Ensure there is a valid auth token
+	if err := c.ensureValidToken(ctx); err != nil {
+		return finalRes, fmt.Errorf("failed to ensure valid token: %w", err)
+	}
+	tokens, err := c.TokenStore.Load("strava")
+	if err != nil {
+		return finalRes, fmt.Errorf("unable to load token from store: %w", err)
+	}
+
+	// Make request a loop in the case of
+	for {
+		select {
+		case <-ctx.Done():
+			return finalRes, ctx.Err()
+		default:
+		}
+
+		// Make requests
+		idStr := strconv.FormatInt(id, 10)
+		u, _ := url.Parse(baseAPI + "/activities/" + idStr)
+		req, _ := http.NewRequest("GET", u.String(), nil)
+		req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
+
+		resp, err := c.http.Do(req)
+		if err != nil {
+			return finalRes, fmt.Errorf("unable to fetch detailed activity: %w", err)
+		}
+
+		if resp.StatusCode == http.StatusUnauthorized {
+			resp.Body.Close()
+			if verbose {
+				fmt.Printf("401 Unauthorized: attempting to refresh token\n")
+			}
+			err := c.refreshAccessToken(ctx)
+			if err != nil {
+				return finalRes, fmt.Errorf("refresh failed: %w", err)
+			}
+
+			tokens, err = c.TokenStore.Load("strava")
+			if err != nil {
+				return finalRes, fmt.Errorf("failed to fetch token from store after refresh: %w", err)
+			}
+
+			req, _ := http.NewRequest("GET", u.String(), nil)
+			req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
+			resp, err = c.http.Do(req)
+			if err != nil {
+				return finalRes, err
+			}
+		}
+
+		// basic rate limiting
+		if resp.StatusCode == http.StatusTooManyRequests {
+			resp.Body.Close()
+			fmt.Printf("429 Rate limited: sleeping %.2fs\n", c.config.RateLimitInterval.Seconds())
+
+			select {
+			case <-time.After(c.config.RateLimitInterval):
+				continue
+			case <-ctx.Done():
+				return finalRes, ctx.Err()
+			}
+		}
+
+		// Unexpected Statuses
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return finalRes, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
+		}
+
+		// Start parsing
+		body, err := io.ReadAll(resp.Body)
+
+		resp.Body.Close()
+		if err != nil {
+			return finalRes, fmt.Errorf("failed to parse body: %w", err)
+		}
+
+		c.RecordJSON("details", fmt.Sprintf("_%d", id), body)
+		if err := json.Unmarshal(body, &finalRes); err != nil {
+			return finalRes, fmt.Errorf("failed to marshal detailed activity from body: %w", err)
+		}
+		return finalRes, nil
+	}
+}
+
+func (c *Client) ensureValidToken(ctx context.Context) error {
+	token, err := c.TokenStore.Load("strava")
+	if err != nil {
+		return fmt.Errorf("unable to load token from store: %w", err)
+	}
+
+	if token.RefreshToken == "" {
+		return c.runOAuth(ctx)
+	}
+
+	if token.AccessToken == "" || isExpired(token.ExpiresAt) {
+		return c.refreshAccessToken(ctx)
+	}
+
+	return nil
 }
 
 type TokenResponse struct {
@@ -291,86 +386,83 @@ func (c *Client) runOAuth(ctx context.Context) error {
 		Scopes: []string{"read,activity:read_all"},
 	}
 
-	mux := http.NewServeMux()
-	done := make(chan error, 1)
-
-	// TODO - update to crypto/rand for better randomness
 	state := fmt.Sprintf("st-%d", time.Now().UnixNano())
+	authURL := oauthCfg.AuthCodeURL(state, oauth2.AccessTypeOffline)
 
-	mux.HandleFunc("/auth/strava", func(w http.ResponseWriter, r *http.Request) {
-		url := oauthCfg.AuthCodeURL(state, oauth2.AccessTypeOffline)
-		http.Redirect(w, r, url, http.StatusFound)
-	})
+	fmt.Println("Open the following URL in your browser to authorize:")
+	fmt.Println(authURL)
+	fmt.Println("")
 
-	mux.HandleFunc("/oauth/strava/callback", func(w http.ResponseWriter, r *http.Request) {
-		// validate state
-		if r.URL.Query().Get("state") != state {
-			http.Error(w, "invalid state", http.StatusBadRequest)
-			done <- fmt.Errorf("invalid state in callback")
-			return
-		}
-
-		code := r.URL.Query().Get("code")
-		if code == "" {
-			http.Error(w, "missing code", http.StatusBadRequest)
-			done <- fmt.Errorf("missing code in callback")
-			return
-		}
-
-		token, err := oauthCfg.Exchange(r.Context(), code)
-		if err != nil {
-			http.Error(w, "token exchange failed", http.StatusInternalServerError)
-			done <- fmt.Errorf("token exchange failed: %w", err)
-			return
-		}
-
-		// Save tokens into the token store
-		env := Token{
-			AccessToken:  token.AccessToken,
-			RefreshToken: token.RefreshToken,
-			ExpiresAt:    token.Expiry.Unix(),
-		}
-
-		if err := c.TokenStore.Save("strava", env); err != nil {
-			http.Error(w, "failed to save token", http.StatusInternalServerError)
-			done <- fmt.Errorf("failed to save token: %w", err)
-			return
-		}
-
-		fmt.Fprintln(w, "Strava authorization complete. You can close this window.")
-		done <- nil
-	})
-
-	srv := &http.Server{
-		Addr:              "127.0.0.1:8080",
-		Handler:           mux,
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       10 * time.Second,
-		WriteTimeout:      20 * time.Second,
-		IdleTimeout:       90 * time.Second,
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Paste the full redirect URL here: ")
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		fmt.Printf("Failed to read input: %v\n", err)
 	}
 
-	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			done <- fmt.Errorf("http server error: %w", err)
-		}
-	}()
-
-	fmt.Println("Visit http://localhost:8080/auth/strava in browser to authorize Strava.")
-	fmt.Println("Waiting for authorization...")
-
-	var err error
-	select {
-	case err = <-done:
-	case <-ctx.Done():
-		err = ctx.Err()
+	code, err := extractCode(strings.TrimSpace(input))
+	if err != nil {
+		return fmt.Errorf("Unable to parse code:")
 	}
 
-	fmt.Println("Authorization compelete.")
+	token, err := oauthCfg.Exchange(ctx, code)
+	if err != nil {
+		return fmt.Errorf("token exchange failed: %w", err)
+	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	_ = srv.Shutdown(shutdownCtx)
+	if err := c.TokenStore.Save("strava", Token{
+		AccessToken:  token.AccessToken,
+		RefreshToken: token.RefreshToken,
+		ExpiresAt:    token.Expiry.Unix(),
+	}); err != nil {
+		return fmt.Errorf("failed to save token: %w", err)
+	}
 
-	return err
+	fmt.Println("Strava authentication complete")
+	return nil
+}
+
+func extractCode(input string) (string, error) {
+	if input == "" {
+		return "", fmt.Errorf("code is required")
+	}
+
+	if !strings.Contains(input, "code=") {
+		return "", fmt.Errorf("input does not ")
+	}
+	parts := strings.Split(input, "code=")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("redirect url is invalid")
+	}
+	tail := parts[1]
+	code := strings.Split(tail, "&")[0]
+	if code == "" {
+		return "", fmt.Errorf("code is required")
+	}
+
+	return code, nil
+}
+
+func isExpired(exp int64) bool {
+	t := time.Unix(exp, 0)
+	return time.Now().After(t)
+}
+
+func (c *Client) RecordJSON(kind string, key string, body []byte) {
+	if os.Getenv("STRAVA_RECORD") != "1" {
+		return
+	}
+
+	dir := "testdata"
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		fmt.Printf("failed to create recording dir: %v\n", err)
+		return
+	}
+
+	filename := filepath.Join(dir, fmt.Sprintf("%s_%s.json", kind, key))
+	if err := os.WriteFile(filename, body, 0o755); err != nil {
+		fmt.Printf("record json write failed: %v\n", err)
+	} else {
+		fmt.Printf("recorded %s_%x.json\n", kind, key)
+	}
 }
