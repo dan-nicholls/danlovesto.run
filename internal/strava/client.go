@@ -1,13 +1,11 @@
 package strava
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
-	"golang.org/x/oauth2"
 	"io"
 	"net"
 	"net/http"
@@ -372,75 +370,6 @@ func (c *Client) refreshAccessToken(ctx context.Context) error {
 
 	fmt.Println("🔐 refreshed access token and updated")
 	return nil
-}
-
-func (c *Client) runOAuth(ctx context.Context) error {
-	oauthCfg := &oauth2.Config{
-		ClientID:     c.config.ClientID,
-		ClientSecret: c.config.ClientSecret,
-		RedirectURL:  c.config.RedirectURL,
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  "https://www.strava.com/oauth/authorize",
-			TokenURL: "https://www.strava.com/oauth/token",
-		},
-		Scopes: []string{"read,activity:read_all"},
-	}
-
-	state := fmt.Sprintf("st-%d", time.Now().UnixNano())
-	authURL := oauthCfg.AuthCodeURL(state, oauth2.AccessTypeOffline)
-
-	fmt.Println("Open the following URL in your browser to authorize:")
-	fmt.Println(authURL)
-	fmt.Println("")
-
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Paste the full redirect URL here: ")
-	input, err := reader.ReadString('\n')
-	if err != nil {
-		fmt.Printf("Failed to read input: %v\n", err)
-	}
-
-	code, err := extractCode(strings.TrimSpace(input))
-	if err != nil {
-		return fmt.Errorf("Unable to parse code:")
-	}
-
-	token, err := oauthCfg.Exchange(ctx, code)
-	if err != nil {
-		return fmt.Errorf("token exchange failed: %w", err)
-	}
-
-	if err := c.TokenStore.Save("strava", Token{
-		AccessToken:  token.AccessToken,
-		RefreshToken: token.RefreshToken,
-		ExpiresAt:    token.Expiry.Unix(),
-	}); err != nil {
-		return fmt.Errorf("failed to save token: %w", err)
-	}
-
-	fmt.Println("Strava authentication complete")
-	return nil
-}
-
-func extractCode(input string) (string, error) {
-	if input == "" {
-		return "", fmt.Errorf("code is required")
-	}
-
-	if !strings.Contains(input, "code=") {
-		return "", fmt.Errorf("input does not ")
-	}
-	parts := strings.Split(input, "code=")
-	if len(parts) < 2 {
-		return "", fmt.Errorf("redirect url is invalid")
-	}
-	tail := parts[1]
-	code := strings.Split(tail, "&")[0]
-	if code == "" {
-		return "", fmt.Errorf("code is required")
-	}
-
-	return code, nil
 }
 
 func isExpired(exp int64) bool {

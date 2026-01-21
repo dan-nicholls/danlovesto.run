@@ -14,12 +14,17 @@ type StravaConfig struct {
 	RedirectURL       string
 	SyncInterval      time.Duration
 	RateLimitInterval time.Duration
+	OAuthMethod       string
 }
 
 func (conf *StravaConfig) setValues() error {
 	conf.ClientID = strings.TrimSpace(os.Getenv("STRAVA_CLIENT_ID"))
 	conf.ClientSecret = strings.TrimSpace(os.Getenv("STRAVA_CLIENT_SECRET"))
 	conf.RedirectURL = strings.TrimSpace(os.Getenv("STRAVA_REDIRECT_URL"))
+
+	if OAuthMethodStr := strings.ToLower(strings.TrimSpace(os.Getenv("STRAVA_OAUTH_METHOD"))); OAuthMethodStr != "" {
+		conf.OAuthMethod = OAuthMethodStr
+	}
 
 	if syncIntStr := strings.TrimSpace(os.Getenv("STRAVA_SYNC_INTERVAL")); syncIntStr != "" {
 		syncInt, err := strconv.Atoi(syncIntStr)
@@ -43,6 +48,7 @@ func (conf *StravaConfig) setValues() error {
 func (conf *StravaConfig) setDefaults() {
 	conf.SyncInterval = 15 * time.Minute
 	conf.RateLimitInterval = 1 * time.Minute
+	conf.OAuthMethod = "cli"
 }
 
 func (conf *StravaConfig) Validate() error {
@@ -64,6 +70,10 @@ func (conf *StravaConfig) Validate() error {
 
 	if conf.RateLimitInterval <= 0 {
 		return fmt.Errorf("STRAVA_RATE_LIMIT_INTERVAL must not be <= 0")
+	}
+
+	if conf.OAuthMethod != "cli" && conf.OAuthMethod != "http" {
+		return fmt.Errorf("STRAVA_OAUTH_METHOD must be either \"cli\" or \"http\"")
 	}
 
 	return nil
