@@ -140,7 +140,7 @@ templ PBComponent(mapToken string, pbData []contracts.DetailedPersonalBest) {
 		<div class="pb-grid" x-data="{ active: 0 }">
 			<div class="pb-list">
 				<div class="pb-list-headers">
-					<span>Distance</span>
+					<span>Name</span>
 					<span>Date</span>
 					<span>Time</span>
 				</div>
@@ -149,7 +149,7 @@ templ PBComponent(mapToken string, pbData []contracts.DetailedPersonalBest) {
 						class="pb-list-item pb-list-link"
 						:class={ "{ 'is-active': active === " + strconv.Itoa(i) + " }" }
 						@click={ "active = " + strconv.Itoa(i) }>
-						<span><b>{ pb.Distance }</b></span>
+						<span><b>{ pb.Name }</b></span>
 						<span class="subtitle">{ pb.Activity.StartDateLocal.Format("02 Jan 2006") }</span>
 						<span class="subtitle">{ pb.ElapsedTime }</span>
 					</div>

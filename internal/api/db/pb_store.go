@@ -35,8 +35,8 @@ func (s *PBStore) SetPB(pb contracts.PersonalBest) error {
 
 func (s *PBStore) GetAllPBs() ([]*contracts.PersonalBest, error) {
 	rows, err := s.DB.Conn.Query(`
-		SELECT distance, elapsed_time, activity_id, updated_at
-		FROM personal_bests
+		SELECT name, distance, elapsed_time, activity_id, updated_at
+		FROM personal_bests ORDER BY distance DESC 
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("query pbs: %w", err)
@@ -46,7 +46,7 @@ func (s *PBStore) GetAllPBs() ([]*contracts.PersonalBest, error) {
 	var list []*contracts.PersonalBest
 	for rows.Next() {
 		var pb contracts.PersonalBest
-		if err := rows.Scan(&pb.Distance, &pb.ElapsedTime, &pb.ActivityID, &pb.UpdatedAt); err != nil {
+		if err := rows.Scan(&pb.Name, &pb.Distance, &pb.ElapsedTime, &pb.ActivityID, &pb.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan pb: %w", err)
 		}
 		list = append(list, &pb)

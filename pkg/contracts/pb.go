@@ -13,6 +13,7 @@ type PersonalBest struct {
 }
 
 type DetailedPersonalBest struct {
+	Name        string
 	Distance    int       `json:"distance"`
 	ElapsedTime int       `json:"elapsed_time"`
 	UpdatedAt   time.Time `json:"updated_at"`

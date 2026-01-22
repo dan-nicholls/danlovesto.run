@@ -54,6 +54,7 @@ func (s *RunService) ListDetailedPBs() ([]contracts.DetailedPersonalBest, error)
 		}
 
 		dpb := contracts.DetailedPersonalBest{
+			Name:        pb.Name,
 			Distance:    pb.Distance,
 			ElapsedTime: pb.ElapsedTime,
 			Activity:    a,
