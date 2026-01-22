@@ -7,7 +7,7 @@ import (
 )
 
 type PBRepo interface {
-	SetPB(distance string, duration int, activityID int64) error
+	SetPB(pb contracts.PersonalBest) error
 	GetAllPBs() ([]*contracts.PersonalBest, error)
 }
 
@@ -18,17 +18,6 @@ type PBStore struct {
 func NewPBStore(db *Store) *PBStore {
 	return &PBStore{DB: db}
 }
-
-// func (s *PBStore) SetPB(distance string, duration int, activityID int64) error {
-// 	_, err := s.DB.Conn.Exec(`
-// 		INSERT OR REPLACE INTO personal_bests (
-// 			name, distance, elapsed_time, activity_id, updated_at
-// 		)
-// 		VALUES (?, ?, ?, ? , ?)
-// 	`, duration, activityID, time.Now(), distance)
-//
-// 	return err
-// }
 
 func (s *PBStore) SetPB(pb contracts.PersonalBest) error {
 	_, err := s.DB.Conn.Exec(`
@@ -46,7 +35,7 @@ func (s *PBStore) SetPB(pb contracts.PersonalBest) error {
 
 func (s *PBStore) GetAllPBs() ([]*contracts.PersonalBest, error) {
 	rows, err := s.DB.Conn.Query(`
-		SELECT distance, duration, activity_id, updated_at
+		SELECT distance, elapsed_time, activity_id, updated_at
 		FROM personal_bests
 	`)
 	if err != nil {

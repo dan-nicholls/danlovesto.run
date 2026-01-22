@@ -151,7 +151,7 @@ templ PBComponent(mapToken string, pbData []contracts.DetailedPersonalBest) {
 						@click={ "active = " + strconv.Itoa(i) }>
 						<span><b>{ pb.Distance }</b></span>
 						<span class="subtitle">{ pb.Activity.StartDateLocal.Format("02 Jan 2006") }</span>
-						<span class="subtitle">{ pb.Duration }</span>
+						<span class="subtitle">{ pb.ElapsedTime }</span>
 					</div>
 				}
 			</div>

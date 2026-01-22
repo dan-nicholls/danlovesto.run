@@ -13,8 +13,8 @@ type PersonalBest struct {
 }
 
 type DetailedPersonalBest struct {
-	Distance  string    `json:"distance"`
-	Duration  string    `json:"duration"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Activity  *Activity `json:"activity,omitempty"`
+	Distance    int       `json:"distance"`
+	ElapsedTime int       `json:"elapsed_time"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	Activity    *Activity `json:"activity,omitempty"`
 }
