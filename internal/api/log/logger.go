@@ -1,18 +1,18 @@
 package log
 
 import (
-	"sync"
-	"log"
 	"io"
+	"log"
+	"sync"
 )
 
-type Logger interface { 
+type Logger interface {
 	Infof(format string, v ...interface{})
 	Errorf(format string, v ...interface{})
 }
 
 type StdLogger struct {
-	mu sync.Mutex
+	mu  sync.Mutex
 	std *log.Logger
 }
 

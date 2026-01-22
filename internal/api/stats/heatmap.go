@@ -1,9 +1,9 @@
 package stats
 
 import (
-	"time"
-	"strconv"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
 )
@@ -12,22 +12,22 @@ import (
 
 func GetYearBounds(year int) (startDate, endDate time.Time) {
 	startDate = time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC)
-	endDate = time.Date(year, time.December, 31, 0,0,0,0, time.UTC)
+	endDate = time.Date(year, time.December, 31, 0, 0, 0, 0, time.UTC)
 	return
 }
 
 func BuildEmptyYear(startDate, endDate time.Time) contracts.Year {
-	daysArr := make([]contracts.Day, 0)	
+	daysArr := make([]contracts.Day, 0)
 	for d := startDate; !d.After(endDate); d = d.AddDate(0, 0, 1) {
-		dc := contracts.Day{ Date: d.Format("2006-01-02")}
+		dc := contracts.Day{Date: d.Format("2006-01-02")}
 		daysArr = append(daysArr, dc)
 	}
 	return contracts.Year{
 		Year: startDate.Year(),
 		From: startDate,
-		To: endDate,
+		To:   endDate,
 		Days: daysArr,
-	} 
+	}
 }
 
 func BuildEmptyYears(startDate, endDate, now time.Time) []contracts.Year {
@@ -44,9 +44,9 @@ func BuildEmptyYears(startDate, endDate, now time.Time) []contracts.Year {
 	toYear := endDate.Year()
 
 	years := make([]contracts.Year, 0, toYear-fromYear+1)
-	for i:= fromYear; i <= toYear; i++ {
+	for i := fromYear; i <= toYear; i++ {
 		// Check if start and end dates fall in current year
-		start, end :=  GetYearBounds(i)
+		start, end := GetYearBounds(i)
 		if startDate.After(start) {
 			start = startDate
 		}
@@ -74,7 +74,7 @@ func CalculateStops(levels int) []float64 {
 func CalculateEdges(maxVal float64, stops []float64) []float64 {
 	edges := make([]float64, len(stops))
 	for i, s := range stops {
-		edges[i] = float64(maxVal)*s
+		edges[i] = float64(maxVal) * s
 	}
 	return edges
 }
@@ -136,18 +136,18 @@ func CreateHeatMap(acts []*contracts.Activity, p contracts.HeatMapParams) (contr
 	labels := GetLabelsFromEdges(edges)
 
 	bucketDetails := contracts.BucketDetails{
-		Scale: "linear",
+		Scale:  "linear",
 		Domain: [2]float64{0, globalMax},
 		Levels: p.Levels,
-		Stops: stops,
-		Edges: edges,
+		Stops:  stops,
+		Edges:  edges,
 		Labels: labels,
 	}
 
 	// Build Empty Years
 	endYear := time.Now().Year()
 	if p.ToYear != 0 {
-		endYear = min(p.ToYear,time.Now().Year())
+		endYear = min(p.ToYear, time.Now().Year())
 	}
 	start, _ := GetYearBounds(max(p.FromYear, minYear))
 	_, end := GetYearBounds(endYear)
@@ -167,7 +167,7 @@ func CreateHeatMap(acts []*contracts.Activity, p contracts.HeatMapParams) (contr
 		}
 		dc.Distance = dist
 	}
-		
+
 	// Assign levels and compute stats
 	for yi := range years {
 		total := 0.0
@@ -185,12 +185,12 @@ func CreateHeatMap(acts []*contracts.Activity, p contracts.HeatMapParams) (contr
 		years[yi].Stats.TotalDistance = total
 		years[yi].Stats.AvgDistance = avg
 	}
-	
+
 	// Build Response
 	h := contracts.HeatmapData{
 		Buckets: bucketDetails,
-		Years: years,
-		Today: now,
+		Years:   years,
+		Today:   now,
 	}
 
 	return h, nil
@@ -203,7 +203,7 @@ func GetDay(years []contracts.Year, day time.Time) (*contracts.Day, error) {
 			for j := range years[i].Days {
 				if years[i].Days[j].Date == str {
 					return &years[i].Days[j], nil
-				}	
+				}
 			}
 		}
 	}

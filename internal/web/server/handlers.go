@@ -1,34 +1,33 @@
 package server
 
 import (
-	"net/http"
-	"log"
 	"context"
 	"fmt"
+	"log"
+	"net/http"
 
 	"github.com/dan-nicholls/danlovesto.run/internal/web/ui/pages"
 )
-
 
 func (s *Server) handleHome() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		info, err := s.api.Info(ctx)
 		if err != nil {
-			log.Println("error fetching info: %v", err)
-			s.handleError(ctx, w, http.StatusInternalServerError, fmt.Errorf("fetch info: %w", err))		
+			log.Printf("error fetching info: %v\n", err)
+			s.handleError(ctx, w, http.StatusInternalServerError, fmt.Errorf("fetch info: %w", err))
 			return
 		}
 
 		summary, err := s.api.Summary(ctx)
 		if err != nil {
-			s.handleError(ctx, w, http.StatusInternalServerError, fmt.Errorf("fetch summary: %w", err))		
+			s.handleError(ctx, w, http.StatusInternalServerError, fmt.Errorf("fetch summary: %w", err))
 			return
 		}
-		
+
 		dl, err := s.api.DailyLogs(ctx)
 		if err != nil {
-			s.handleError(ctx, w, http.StatusInternalServerError, fmt.Errorf("fetch daily logs: %w", err))		
+			s.handleError(ctx, w, http.StatusInternalServerError, fmt.Errorf("fetch daily logs: %w", err))
 			return
 		}
 

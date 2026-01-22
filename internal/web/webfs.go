@@ -1,9 +1,9 @@
-package web 
+package web
 
 import (
-	"net/http"
 	"embed"
 	"io/fs"
+	"net/http"
 )
 
 //go:embed static

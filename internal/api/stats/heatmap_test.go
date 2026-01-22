@@ -1,9 +1,8 @@
 package stats
 
 import (
-	"time"
 	"testing"
-
+	"time"
 	//"github.com/dan-nicholls/danlovesto.run/internal/api/model"
 )
 
@@ -11,7 +10,7 @@ import (
 //	act1Time, _ := time.Parse(time.RFC3339, "2024-01-03T08:09:27Z")
 //	act2Time, _ := time.Parse(time.RFC3339, "2023-12-29T08:09:27Z")
 //	act3Time, _ := time.Parse(time.RFC3339, "2024-01-03T08:09:27Z")
-//	
+//
 //	p := HeatMapParameters{
 //		FromYear: 2023,
 //		ToYear: 2024,
@@ -34,7 +33,7 @@ import (
 //
 //	res, err := CreateHeatMap(acts, p)
 //	if err != nil {
-//		t.Fatalf("Failed to create  %v", err)	
+//		t.Fatalf("Failed to create  %v", err)
 //	}
 //
 //
@@ -45,9 +44,9 @@ import (
 //
 //	expect := 6000.00
 //	if dc.Distance != expect {
-//		t.Fatalf("got %v km, want %v km", dc.Distance, expect)	
+//		t.Fatalf("got %v km, want %v km", dc.Distance, expect)
 //	}
-//	
+//
 //}
 //
 

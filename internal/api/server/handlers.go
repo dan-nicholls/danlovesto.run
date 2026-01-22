@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"time"
 	"strconv"
+	"time"
 
-	"github.com/dan-nicholls/danlovesto.run/internal/conf"
 	"github.com/dan-nicholls/danlovesto.run/internal/api/log"
 	"github.com/dan-nicholls/danlovesto.run/internal/api/service"
 	"github.com/dan-nicholls/danlovesto.run/internal/api/stats"
+	"github.com/dan-nicholls/danlovesto.run/internal/conf"
 	"github.com/dan-nicholls/danlovesto.run/pkg/contracts"
 )
 
@@ -33,7 +33,7 @@ func decode[T any](r *http.Request) (T, error) {
 }
 
 func handleHealthCheck(logger log.Logger) http.Handler {
-	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Infof("%s - %s - Handling Health Endpoint", r.Method, r.URL.Path)
 		err := encode(w, r, http.StatusOK, map[string]string{
 			"status": "ok",
@@ -47,16 +47,16 @@ func handleHealthCheck(logger log.Logger) http.Handler {
 
 func handleInfo(logger log.Logger, conf *conf.Config, v string, start time.Time) http.Handler {
 	type response struct {
-		Version string `json:"version"`	
-		Uptime string `json:"uptime"`
+		Version string `json:"version"`
+		Uptime  string `json:"uptime"`
 	}
 
-	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Infof("%s - %s - Handling Info Endpoint", r.Method, r.URL.Path)
 		uptime := time.Since(start).Truncate(time.Second).String()
 		res := response{
 			Version: v,
-			Uptime: uptime,
+			Uptime:  uptime,
 		}
 
 		if err := encode(w, r, http.StatusOK, res); err != nil {
@@ -68,25 +68,25 @@ func handleInfo(logger log.Logger, conf *conf.Config, v string, start time.Time)
 
 func handleStatSummary(logger log.Logger, rs *service.RunService) http.Handler {
 	type response struct {
-		TotalRuns int `json:"total_runs"`
+		TotalRuns     int `json:"total_runs"`
 		TotalDistance int `json:"total_distance"`
-		TotalHours int `json:"total_hours"`
-		TotalClimbed int `json:"total_climbed"`
+		TotalHours    int `json:"total_hours"`
+		TotalClimbed  int `json:"total_climbed"`
 	}
 
-	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Infof("%s - %s - Handling Stat Summary Endpoint", r.Method, r.URL.Path)
 
 		totalRuns, _ := rs.TotalRuns()
-		totalDistanceF , _ := rs.TotalDistance()
+		totalDistanceF, _ := rs.TotalDistance()
 		totalDistance := int(totalDistanceF)
 		totalHours, _ := rs.TotalHours()
 		totalClimbed, _ := rs.TotalClimbed()
 		res := response{
-			TotalRuns: totalRuns,
+			TotalRuns:     totalRuns,
 			TotalDistance: totalDistance,
-			TotalHours: totalHours,
-			TotalClimbed: totalClimbed,
+			TotalHours:    totalHours,
+			TotalClimbed:  totalClimbed,
 		}
 
 		if err := encode(w, r, http.StatusOK, res); err != nil {
@@ -102,18 +102,17 @@ func handlePersonalBests(logger log.Logger, rs *service.RunService) http.Handler
 		Data []contracts.DetailedPersonalBest `json:"data"`
 	}
 
-	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Infof("%s - %s - Handling Personal Bests Endpoint", r.Method, r.URL.Path)
 
-		pbs, err  := rs.ListDetailedPBs()
+		pbs, err := rs.ListDetailedPBs()
 		if err != nil {
 			logger.Errorf("Failed to fetch PBs: %w", err)
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
 
-
-		res := Response{ Data: pbs }
+		res := Response{Data: pbs}
 
 		if err := encode(w, r, http.StatusOK, res); err != nil {
 			logger.Errorf("Failed to encode personal best response: %w", err)
@@ -123,13 +122,13 @@ func handlePersonalBests(logger log.Logger, rs *service.RunService) http.Handler
 }
 
 func handleUnderConstruction() http.Handler {
-	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "under construction", http.StatusServiceUnavailable)
 	})
 }
 
-func handleStatsHeatmap(logger log.Logger, rs *service.RunService ) http.Handler {
-	return http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+func handleStatsHeatmap(logger log.Logger, rs *service.RunService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Parse and validate input parameters
 		q := r.URL.Query()
 
@@ -148,10 +147,10 @@ func handleStatsHeatmap(logger log.Logger, rs *service.RunService ) http.Handler
 
 		params := contracts.HeatMapParams{
 			FromYear: fromYear,
-			ToYear: toYear,
-			Unit: "km",
-			Scale: "linear",
-			Levels: levels,
+			ToYear:   toYear,
+			Unit:     "km",
+			Scale:    "linear",
+			Levels:   levels,
 		}
 
 		// Fetch Activities

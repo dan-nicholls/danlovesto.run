@@ -3,7 +3,7 @@ package db
 import "time"
 
 type ActivityFilter struct {
-	Types []string
+	Types     []string
 	FromLocal *time.Time
-	ToLocal *time.Time
+	ToLocal   *time.Time
 }

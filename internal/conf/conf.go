@@ -73,6 +73,7 @@ func (conf *Config) setValues() error {
 		p, _ := strconv.Atoi(pStr)
 		conf.WebPort = p
 	}
+
 	mStr := os.Getenv("WEB_MAP_TOKEN")
 	if mStr != "" {
 		conf.WebMapToken = mStr
@@ -94,8 +95,9 @@ func (conf *Config) setValues() error {
 
 func LoadConfig() (*Config, error) {
 	conf := &Config{}
+
 	conf.setDefaults()
-	// Set Values
+
 	err := conf.setValues()
 	if err != nil {
 		return nil, err

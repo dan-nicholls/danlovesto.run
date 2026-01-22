@@ -2,38 +2,38 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
-	"time"
-	"net"
-	"encoding/json"
 	"os/signal"
+	"time"
 )
 
 type Config struct {
-	ClientID string
+	ClientID     string
 	ClientSecret string
-	CallbackUrl string
-	VerifyToken string
-	ListenAddr string
+	CallbackUrl  string
+	VerifyToken  string
+	ListenAddr   string
 }
 
 type SubscriptionValidation struct {
-	Mode string `json:"hub.mode"`
-	Challenge string `json:"hub.challenge"`
+	Mode        string `json:"hub.mode"`
+	Challenge   string `json:"hub.challenge"`
 	VerifyToken string `json:"hub.VerifyToken"`
 }
 
 type EventObject struct {
-	ObjectType string `json:"object_type"`
-	ObjectID string `json:"object_id"`
-	AspectType string `json:"aspect_type"`
-	Updates string `json:"updates"`
-	OwnerID string `json:"owner_id"`
-	SubscriptionID int `json:"subscription_id"`
-	EventTime int `json:"event_id"` 
+	ObjectType     string `json:"object_type"`
+	ObjectID       string `json:"object_id"`
+	AspectType     string `json:"aspect_type"`
+	Updates        string `json:"updates"`
+	OwnerID        string `json:"owner_id"`
+	SubscriptionID int    `json:"subscription_id"`
+	EventTime      int    `json:"event_id"`
 }
 
 func decode[T any](r *http.Request) (T, error) {
@@ -46,7 +46,7 @@ func decode[T any](r *http.Request) (T, error) {
 
 func WebhookHandler(expectedVerifyToken string, sink chan<- EventObject) http.Handler {
 	m := map[string]http.Handler{
-		http.MethodGet: WebhookVerifyHandler(expectedVerifyToken),
+		http.MethodGet:  WebhookVerifyHandler(expectedVerifyToken),
 		http.MethodPost: WebhookEventHandler(sink),
 	}
 
@@ -72,7 +72,7 @@ func WebhookEventHandler(sink chan<- EventObject) http.Handler {
 		event, err := decode[EventObject](r)
 		if err != nil {
 			log.Printf("Failed to decode event: %v", err)
-			http.Error(w, "Bad Request", http.StatusInternalServerError)	
+			http.Error(w, "Bad Request", http.StatusInternalServerError)
 			return
 		}
 		sink <- event
@@ -83,9 +83,11 @@ func PrintEventsWorker(ctx context.Context, in <-chan EventObject) {
 	for {
 		select {
 		case event, ok := <-in:
-			if !ok {return}
+			if !ok {
+				return
+			}
 			log.Printf("Event: %+v\n", event)
-		case  <-ctx.Done():
+		case <-ctx.Done():
 		}
 	}
 }
@@ -111,13 +113,13 @@ func StartHTTP(ctx context.Context, listenAddr, verifyToken string, sink chan<- 
 	mux.Handle("/ready", readyHandler())
 
 	// TODO - Add logging middleware
-	srv := &http.Server {
-		Addr: listenAddr,
-		ReadTimeout: 5 * time.Second,
+	srv := &http.Server{
+		Addr:              listenAddr,
+		ReadTimeout:       5 * time.Second,
 		ReadHeaderTimeout: 2 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout: 60 * time.Second,
-		Handler: mux,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		Handler:           mux,
 	}
 
 	// Check if listen addr is already bound
@@ -137,24 +139,22 @@ func StartHTTP(ctx context.Context, listenAddr, verifyToken string, sink chan<- 
 			log.Printf("HTTP serve error: %v", err)
 		}
 	}()
-	
+
 	return srv, ready, nil
 }
 
-
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(),os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
 	// Load Config
 	cfg := Config{
-		ClientID: os.Getenv("CLIENT_ID"),
-		ClientSecret : os.Getenv("CLIENT_SECRET"),
-		CallbackUrl: os.Getenv("CALLBACK_URI"),
-		VerifyToken: os.Getenv("VERIFY_TOKEN"),
-		ListenAddr: "0.0.0.0:8080",
+		ClientID:     os.Getenv("CLIENT_ID"),
+		ClientSecret: os.Getenv("CLIENT_SECRET"),
+		CallbackUrl:  os.Getenv("CALLBACK_URI"),
+		VerifyToken:  os.Getenv("VERIFY_TOKEN"),
+		ListenAddr:   "0.0.0.0:8080",
 	}
-
 
 	events := make(chan EventObject, 256)
 
@@ -169,9 +169,9 @@ func main() {
 
 	// Check ready
 	select {
-	case <- ready:
+	case <-ready:
 		log.Println("Ready signal recieved from HTTP Server")
-	case <- time.After(10 * time.Second):
+	case <-time.After(10 * time.Second):
 		log.Fatalf("HTTP Server was not ready in time")
 	}
 
@@ -180,7 +180,7 @@ func main() {
 	log.Println("shutdown signal received")
 
 	// Start Timeout for closing
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(timeoutCtx); err != nil {

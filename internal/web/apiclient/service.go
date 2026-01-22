@@ -11,7 +11,7 @@ type StatsService struct {
 }
 
 func NewStatsService(client *Client) *StatsService {
-	return &StatsService{ c: client }
+	return &StatsService{c: client}
 }
 
 func (s *StatsService) Info(ctx context.Context) (contracts.Info, error) {
@@ -37,11 +37,11 @@ func (s *StatsService) DailyLogs(ctx context.Context) (contracts.HeatmapData, er
 	if err != nil {
 		return contracts.HeatmapData{}, err
 	}
-	return hd, nil 
+	return hd, nil
 }
 
 func (s *StatsService) PersonalBests(ctx context.Context) ([]contracts.DetailedPersonalBest, error) {
-	r := struct{
+	r := struct {
 		Data []contracts.DetailedPersonalBest
 	}{}
 
@@ -49,6 +49,6 @@ func (s *StatsService) PersonalBests(ctx context.Context) ([]contracts.DetailedP
 	if err != nil {
 		return []contracts.DetailedPersonalBest{}, err
 	}
-	
+
 	return r.Data, nil
 }

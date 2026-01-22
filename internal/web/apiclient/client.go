@@ -1,13 +1,16 @@
 package api
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
-	"fmt"
-	"encoding/json"
 )
 
-type Client struct { base string; HTTP *http.Client }
+type Client struct {
+	base string
+	HTTP *http.Client
+}
 
 func NewClient(base string) *Client {
 	return &Client{
@@ -23,7 +26,7 @@ func (c *Client) Get(path string, v any) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("%s -> %s", path, resp.StatusCode)
+		return fmt.Errorf("%s -> %d", path, resp.StatusCode)
 	}
 	return json.NewDecoder(resp.Body).Decode(v)
 }
