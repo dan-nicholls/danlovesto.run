@@ -274,14 +274,19 @@ function renderPRs(prs) {
     const item = document.createElement("li");
     const date = pr.startDate ? new Date(pr.startDate).toLocaleDateString() : "—";
     item.innerHTML = `
-      <div>
-        <strong>${pr.label}</strong>
-        <span class="meta">${date}</span>
+      <div class="pr-details">
+        <div>
+          <strong>${pr.label}</strong>
+          <span class="meta">${date}</span>
+        </div>
+        <span class="meta">Best effort from ${pr.activityName}</span>
+        <span class="meta">${formatDistance(pr.distance)}</span>
       </div>
       <div class="activity-meta">
         <span>${formatTime(pr.elapsedTime)}</span>
         <span class="meta">${formatPace(pr.elapsedTime, pr.distance)}</span>
       </div>
+      <div class="map-placeholder" aria-hidden="true">Map preview</div>
     `;
     elements.prList.appendChild(item);
   });
@@ -320,6 +325,7 @@ async function fetchPRsFromRuns(runs) {
           elapsedTime: effort.elapsed_time,
           startDate: details.start_date,
           activityId: details.id,
+          activityName: details.name,
         });
       }
     });

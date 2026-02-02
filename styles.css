@@ -150,6 +150,11 @@ button.ghost {
   border-radius: 12px;
 }
 
+#prList li {
+  align-items: flex-start;
+  gap: 16px;
+}
+
 .activity-list--scroll {
   max-height: 360px;
   overflow-y: auto;
@@ -181,6 +186,27 @@ button.ghost {
   min-width: 160px;
   justify-content: flex-end;
   text-align: right;
+}
+
+.pr-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.map-placeholder {
+  min-width: 140px;
+  min-height: 70px;
+  border-radius: 12px;
+  border: 1px dashed #c9c9dc;
+  background: #f2f2fb;
+  color: #8a8aa3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .footer {
