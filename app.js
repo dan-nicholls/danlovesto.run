@@ -308,9 +308,11 @@ function matchTarget(distance) {
 
 async function fetchPRsFromRuns(runs) {
   const prMap = new Map();
-  const maxRunsToScan = 50;
+  let processed = 0;
 
-  for (const run of runs.slice(0, maxRunsToScan)) {
+  for (const run of runs) {
+    processed += 1;
+    setStatus(`Calculating PRs... ${processed}/${runs.length}`);
     const details = await fetchWithAuth(`/activities/${run.id}`);
     const bestEfforts = details.best_efforts || [];
 
@@ -330,9 +332,6 @@ async function fetchPRsFromRuns(runs) {
       }
     });
 
-    if (prMap.size === PR_TARGETS.length) {
-      break;
-    }
   }
 
   return PR_TARGETS.map((target) => prMap.get(target.label)).filter(Boolean);
