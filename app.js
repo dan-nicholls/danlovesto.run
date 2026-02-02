@@ -1,5 +1,7 @@
-const CLIENT_ID = "";
-const TOKEN_EXCHANGE_URL = "";
+const config = {
+  clientId: "",
+  tokenExchangeUrl: "",
+};
 
 const storageKeys = {
   accessToken: "strava_access_token",
@@ -9,7 +11,6 @@ const storageKeys = {
 };
 
 const elements = {
-  redirectUri: document.getElementById("redirectUri"),
   connectStrava: document.getElementById("connectStrava"),
   logout: document.getElementById("logout"),
   status: document.getElementById("status"),
@@ -25,10 +26,23 @@ const STRAVA_API = "https://www.strava.com/api/v3";
 const STRAVA_OAUTH = "https://www.strava.com/oauth";
 
 const redirectUri = `${window.location.origin}${window.location.pathname}`;
-elements.redirectUri.value = redirectUri;
 
 function setStatus(message) {
   elements.status.textContent = message;
+}
+
+async function loadConfig() {
+  try {
+    const response = await fetch("/config");
+    if (!response.ok) {
+      throw new Error("Unable to load local configuration.");
+    }
+    const data = await response.json();
+    config.clientId = data.clientId || "";
+    config.tokenExchangeUrl = data.tokenExchangeUrl || "";
+  } catch (error) {
+    setStatus(`${error.message} Start the local server and try again.`);
+  }
 }
 
 function storeToken({ access_token, refresh_token, expires_at }) {
@@ -61,13 +75,13 @@ function tokenExpired(token) {
 }
 
 async function exchangeToken(payload) {
-  if (!TOKEN_EXCHANGE_URL) {
+  if (!config.tokenExchangeUrl) {
     throw new Error(
-      "Token exchange is not configured. Set TOKEN_EXCHANGE_URL in app.js to your server endpoint.",
+      "Token exchange is not configured. Ensure the local server is running and /config is available.",
     );
   }
 
-  const response = await fetch(TOKEN_EXCHANGE_URL, {
+  const response = await fetch(config.tokenExchangeUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -83,7 +97,7 @@ async function exchangeToken(payload) {
 
 async function refreshAccessToken(token) {
   const refreshed = await exchangeToken({
-    client_id: CLIENT_ID,
+    client_id: config.clientId,
     grant_type: "refresh_token",
     refresh_token: token.refreshToken,
   });
@@ -176,8 +190,8 @@ async function loadDashboard() {
 }
 
 function startAuthFlow() {
-  if (!CLIENT_ID) {
-    setStatus("Missing Strava client ID in app.js.");
+  if (!config.clientId) {
+    setStatus("Missing Strava client ID. Check your local .env configuration.");
     return;
   }
 
@@ -185,7 +199,7 @@ function startAuthFlow() {
   localStorage.setItem(storageKeys.oauthState, state);
 
   const params = new URLSearchParams({
-    client_id: CLIENT_ID,
+    client_id: config.clientId,
     redirect_uri: redirectUri,
     response_type: "code",
     scope: "read,activity:read_all",
@@ -219,7 +233,7 @@ async function handleAuthRedirect() {
 
   try {
     const tokenResponse = await exchangeToken({
-      client_id: CLIENT_ID,
+      client_id: config.clientId,
       code,
       grant_type: "authorization_code",
     });
@@ -238,6 +252,7 @@ function setupEventListeners() {
 }
 
 async function init() {
+  await loadConfig();
   setupEventListeners();
 
   const token = getToken();
