@@ -8,6 +8,10 @@ const storageKeys = {
   refreshToken: "strava_refresh_token",
   expiresAt: "strava_expires_at",
   oauthState: "strava_oauth_state",
+  cachedActivities: "strava_cached_activities",
+  cachedActivitiesAt: "strava_cached_activities_at",
+  cachedPrs: "strava_cached_prs",
+  cachedPrsAt: "strava_cached_prs_at",
 };
 
 const elements = {
@@ -73,6 +77,23 @@ function clearSession() {
   setStatus("Session cleared.");
   setAuthState(false);
   state.prActivityIds.clear();
+}
+
+function getCachedItem(key, timestampKey, maxAgeMs) {
+  const stored = localStorage.getItem(key);
+  const storedAt = Number(localStorage.getItem(timestampKey));
+  if (!stored || !storedAt) return null;
+  if (Date.now() - storedAt > maxAgeMs) return null;
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return null;
+  }
+}
+
+function setCachedItem(key, timestampKey, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+  localStorage.setItem(timestampKey, String(Date.now()));
 }
 
 function getToken() {
@@ -166,6 +187,16 @@ async function fetchWithAuth(path, { retryCount = 0 } = {}) {
 }
 
 async function fetchAllActivities() {
+  const cacheMaxAgeMs = 15 * 60 * 1000;
+  const cached = getCachedItem(
+    storageKeys.cachedActivities,
+    storageKeys.cachedActivitiesAt,
+    cacheMaxAgeMs,
+  );
+  if (cached) {
+    return cached;
+  }
+
   const allActivities = [];
   let page = 1;
   const perPage = 200;
@@ -178,6 +209,7 @@ async function fetchAllActivities() {
     page += 1;
   }
 
+  setCachedItem(storageKeys.cachedActivities, storageKeys.cachedActivitiesAt, allActivities);
   return allActivities;
 }
 
@@ -327,6 +359,12 @@ function matchTarget(distance) {
 }
 
 async function fetchPRsFromRuns(runs) {
+  const cacheMaxAgeMs = 15 * 60 * 1000;
+  const cached = getCachedItem(storageKeys.cachedPrs, storageKeys.cachedPrsAt, cacheMaxAgeMs);
+  if (cached) {
+    return cached;
+  }
+
   const prMap = new Map();
   let processed = 0;
 
@@ -355,7 +393,9 @@ async function fetchPRsFromRuns(runs) {
 
   }
 
-  return PR_TARGETS.map((target) => prMap.get(target.label)).filter(Boolean);
+  const prs = PR_TARGETS.map((target) => prMap.get(target.label)).filter(Boolean);
+  setCachedItem(storageKeys.cachedPrs, storageKeys.cachedPrsAt, prs);
+  return prs;
 }
 
 async function loadDashboard() {
