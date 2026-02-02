@@ -20,6 +20,7 @@ const elements = {
   totalDistance: document.getElementById("totalDistance"),
   totalTime: document.getElementById("totalTime"),
   recentRuns: document.getElementById("recentRuns"),
+  prList: document.getElementById("prList"),
   allRuns: document.getElementById("allRuns"),
   activityCount: document.getElementById("activityCount"),
 };
@@ -227,6 +228,109 @@ function renderAllActivities(activities) {
   });
 }
 
+const PR_TARGETS = [
+  { label: "400 m", meters: 400 },
+  { label: "800 m", meters: 800 },
+  { label: "1 km", meters: 1000 },
+  { label: "1 mile", meters: 1609 },
+  { label: "5 km", meters: 5000 },
+  { label: "10 km", meters: 10000 },
+  { label: "Half marathon", meters: 21097 },
+  { label: "Marathon", meters: 42195 },
+];
+
+function formatPace(seconds, meters) {
+  if (!seconds || !meters) return "—";
+  const paceSeconds = seconds / (meters / 1000);
+  const minutes = Math.floor(paceSeconds / 60);
+  const remainder = Math.round(paceSeconds % 60)
+    .toString()
+    .padStart(2, "0");
+  return `${minutes}:${remainder} / km`;
+}
+
+function formatTime(seconds) {
+  if (!seconds) return "—";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainder = Math.round(seconds % 60)
+    .toString()
+    .padStart(2, "0");
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, "0")}:${remainder}`;
+  }
+  return `${minutes}:${remainder}`;
+}
+
+function renderPRs(prs) {
+  elements.prList.innerHTML = "";
+
+  if (!prs.length) {
+    elements.prList.innerHTML = "<li>No PRs found yet.</li>";
+    return;
+  }
+
+  prs.forEach((pr) => {
+    const item = document.createElement("li");
+    const date = pr.startDate ? new Date(pr.startDate).toLocaleDateString() : "—";
+    item.innerHTML = `
+      <div>
+        <strong>${pr.label}</strong>
+        <span class="meta">${date}</span>
+      </div>
+      <div class="activity-meta">
+        <span>${formatTime(pr.elapsedTime)}</span>
+        <span class="meta">${formatPace(pr.elapsedTime, pr.distance)}</span>
+      </div>
+    `;
+    elements.prList.appendChild(item);
+  });
+}
+
+function matchTarget(distance) {
+  const tolerance = 25;
+  let closest = null;
+  let bestDiff = Infinity;
+  PR_TARGETS.forEach((target) => {
+    const diff = Math.abs(distance - target.meters);
+    if (diff <= tolerance && diff < bestDiff) {
+      closest = target;
+      bestDiff = diff;
+    }
+  });
+  return closest;
+}
+
+async function fetchPRsFromRuns(runs) {
+  const prMap = new Map();
+  const maxRunsToScan = 50;
+
+  for (const run of runs.slice(0, maxRunsToScan)) {
+    const details = await fetchWithAuth(`/activities/${run.id}`);
+    const bestEfforts = details.best_efforts || [];
+
+    bestEfforts.forEach((effort) => {
+      const target = matchTarget(effort.distance);
+      if (!target) return;
+      const existing = prMap.get(target.label);
+      if (!existing || effort.elapsed_time < existing.elapsedTime) {
+        prMap.set(target.label, {
+          label: target.label,
+          distance: effort.distance,
+          elapsedTime: effort.elapsed_time,
+          startDate: details.start_date,
+        });
+      }
+    });
+
+    if (prMap.size === PR_TARGETS.length) {
+      break;
+    }
+  }
+
+  return PR_TARGETS.map((target) => prMap.get(target.label)).filter(Boolean);
+}
+
 async function loadDashboard() {
   setStatus("Loading dashboard from Strava...");
 
@@ -244,6 +348,8 @@ async function loadDashboard() {
   const runs = activities.filter((activity) => activity.type === "Run");
   renderRecentRuns(runs.slice(0, 10));
   renderAllActivities(activities);
+  const prs = await fetchPRsFromRuns(runs);
+  renderPRs(prs);
 
   elements.dashboard.hidden = false;
   setStatus("Dashboard ready.");

@@ -177,6 +177,12 @@ button.ghost {
   font-size: 12px;
 }
 
+#prList .activity-meta {
+  min-width: 160px;
+  justify-content: flex-end;
+  text-align: right;
+}
+
 .footer {
   padding: 20px;
   text-align: center;
