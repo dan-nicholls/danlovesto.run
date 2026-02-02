@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>danlovesto.run</title>
+    <link rel="icon" href="docs/icon.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <img class="logo" src="docs/icon.png" alt="danlovesto.run logo" />
+        <div>
+          <h1>danlovesto.run</h1>
+          <p class="subtitle">Personal Strava dashboard running entirely in your browser.</p>
+        </div>
+      </header>
+
+      <section class="card">
+        <h2>1) Configure your Strava app</h2>
+        <ol>
+          <li>Create or open a Strava API application.</li>
+          <li>Set the <strong>Authorization Callback Domain</strong> to match this site.</li>
+          <li>Add the redirect URL shown below to your app settings.</li>
+        </ol>
+        <div class="field">
+          <label for="redirectUri">Redirect URL</label>
+          <input id="redirectUri" type="text" readonly />
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>2) Enter client credentials</h2>
+        <p class="note">
+          The credentials are stored only in your browser storage to keep all processing local.
+          Never use this on a shared computer.
+        </p>
+        <div class="grid">
+          <div class="field">
+            <label for="clientId">Client ID</label>
+            <input id="clientId" type="text" placeholder="12345" />
+          </div>
+          <div class="field">
+            <label for="clientSecret">Client Secret</label>
+            <input id="clientSecret" type="password" placeholder="••••••••" />
+          </div>
+        </div>
+        <div class="actions">
+          <button id="saveConfig">Save settings</button>
+          <button id="connectStrava" class="primary">Connect to Strava</button>
+          <button id="logout" class="ghost">Clear session</button>
+        </div>
+      </section>
+
+      <section class="card" id="statusCard">
+        <h2>Status</h2>
+        <p id="status">Waiting for configuration.</p>
+      </section>
+
+      <section class="card" id="dashboard" hidden>
+        <h2>Your dashboard</h2>
+        <div class="dashboard-grid">
+          <div class="stat">
+            <span class="stat-label">Athlete</span>
+            <span id="athleteName" class="stat-value">—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Total runs</span>
+            <span id="totalRuns" class="stat-value">—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Total distance</span>
+            <span id="totalDistance" class="stat-value">—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Total moving time</span>
+            <span id="totalTime" class="stat-value">—</span>
+          </div>
+        </div>
+        <div class="recent">
+          <h3>Recent runs</h3>
+          <ul id="recentRuns" class="activity-list"></ul>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>
+        Built to keep all Strava interactions in your browser. No server required.
+      </p>
+    </footer>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>
