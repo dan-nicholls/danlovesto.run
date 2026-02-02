@@ -150,6 +150,27 @@ button.ghost {
   border-radius: 12px;
 }
 
+.activity-list--scroll {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.activity-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.badge {
+  background: #ffd166;
+  color: #3b2f00;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .activity-list .meta {
   display: block;
   color: #7a7a8f;

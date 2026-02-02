@@ -20,6 +20,8 @@ const elements = {
   totalDistance: document.getElementById("totalDistance"),
   totalTime: document.getElementById("totalTime"),
   recentRuns: document.getElementById("recentRuns"),
+  allRuns: document.getElementById("allRuns"),
+  activityCount: document.getElementById("activityCount"),
 };
 
 const STRAVA_API = "https://www.strava.com/api/v3";
@@ -29,6 +31,11 @@ const redirectUri = `${window.location.origin}${window.location.pathname}`;
 
 function setStatus(message) {
   elements.status.textContent = message;
+}
+
+function setAuthState(isAuthenticated) {
+  elements.connectStrava.hidden = isAuthenticated;
+  elements.logout.hidden = !isAuthenticated;
 }
 
 async function loadConfig() {
@@ -55,6 +62,7 @@ function clearSession() {
   Object.values(storageKeys).forEach((key) => localStorage.removeItem(key));
   elements.dashboard.hidden = true;
   setStatus("Session cleared.");
+  setAuthState(false);
 }
 
 function getToken() {
@@ -131,6 +139,22 @@ async function fetchWithAuth(path) {
   return response.json();
 }
 
+async function fetchAllActivities() {
+  const allActivities = [];
+  let page = 1;
+  const perPage = 200;
+
+  while (true) {
+    const chunk = await fetchWithAuth(`/athlete/activities?per_page=${perPage}&page=${page}`);
+    if (!chunk.length) break;
+    allActivities.push(...chunk);
+    if (chunk.length < perPage) break;
+    page += 1;
+  }
+
+  return allActivities;
+}
+
 function formatDistance(meters) {
   if (!meters) return "0 km";
   const km = meters / 1000;
@@ -169,12 +193,46 @@ function renderRecentRuns(activities) {
   });
 }
 
+function hasPersonalRecord(activity) {
+  const prCount = activity.pr_count ?? 0;
+  const achievementCount = activity.achievement_count ?? 0;
+  return prCount > 0 || achievementCount > 0;
+}
+
+function renderAllActivities(activities) {
+  elements.allRuns.innerHTML = "";
+  elements.activityCount.textContent = `${activities.length} activities loaded`;
+
+  if (!activities.length) {
+    elements.allRuns.innerHTML = "<li>No activities found.</li>";
+    return;
+  }
+
+  activities.forEach((activity) => {
+    const item = document.createElement("li");
+    const date = new Date(activity.start_date).toLocaleDateString();
+    const prLabel = hasPersonalRecord(activity) ? "<span class=\"badge\">PR</span>" : "";
+    item.innerHTML = `
+      <div>
+        <strong>${activity.name}</strong>
+        <span class="meta">${date}</span>
+      </div>
+      <div class="activity-meta">
+        ${prLabel}
+        <span>${formatDistance(activity.distance)}</span>
+        <span class="meta">${formatDuration(activity.moving_time)}</span>
+      </div>
+    `;
+    elements.allRuns.appendChild(item);
+  });
+}
+
 async function loadDashboard() {
   setStatus("Loading dashboard from Strava...");
 
   const athlete = await fetchWithAuth("/athlete");
   const stats = await fetchWithAuth(`/athletes/${athlete.id}/stats`);
-  const activities = await fetchWithAuth("/athlete/activities?per_page=10");
+  const activities = await fetchAllActivities();
 
   elements.athleteName.textContent = `${athlete.firstname} ${athlete.lastname}`;
 
@@ -183,10 +241,13 @@ async function loadDashboard() {
   elements.totalDistance.textContent = formatDistance(runTotals.distance || 0);
   elements.totalTime.textContent = formatDuration(runTotals.moving_time || 0);
 
-  renderRecentRuns(activities.filter((activity) => activity.type === "Run"));
+  const runs = activities.filter((activity) => activity.type === "Run");
+  renderRecentRuns(runs.slice(0, 10));
+  renderAllActivities(activities);
 
   elements.dashboard.hidden = false;
   setStatus("Dashboard ready.");
+  setAuthState(true);
 }
 
 function startAuthFlow() {
@@ -254,10 +315,16 @@ function setupEventListeners() {
 async function init() {
   await loadConfig();
   setupEventListeners();
+  setAuthState(false);
 
   const token = getToken();
   if (token && !tokenExpired(token)) {
-    await loadDashboard();
+    try {
+      await loadDashboard();
+    } catch (error) {
+      setStatus(`Error: ${error.message}`);
+      setAuthState(false);
+    }
   } else {
     await handleAuthRedirect();
   }
