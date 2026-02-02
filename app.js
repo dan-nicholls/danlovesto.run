@@ -38,6 +38,10 @@ function setStatus(message) {
   elements.status.textContent = message;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function setAuthState(isAuthenticated) {
   elements.connectStrava.hidden = isAuthenticated;
   elements.logout.hidden = !isAuthenticated;
@@ -124,7 +128,7 @@ async function refreshAccessToken(token) {
   };
 }
 
-async function fetchWithAuth(path) {
+async function fetchWithAuth(path, { retryCount = 0 } = {}) {
   let token = getToken();
 
   if (tokenExpired(token)) {
@@ -136,6 +140,22 @@ async function fetchWithAuth(path) {
       Authorization: `Bearer ${token.accessToken}`,
     },
   });
+
+  if (response.status === 429 && retryCount < 3) {
+    const retryAfter = Number(response.headers.get("retry-after"));
+    const resetAt = Number(response.headers.get("x-rate-limit-reset"));
+    let waitMs = 0;
+    if (!Number.isNaN(retryAfter) && retryAfter > 0) {
+      waitMs = retryAfter * 1000;
+    } else if (!Number.isNaN(resetAt) && resetAt > 0) {
+      waitMs = Math.max(resetAt * 1000 - Date.now(), 1000);
+    } else {
+      waitMs = 1000 * (retryCount + 1);
+    }
+    setStatus(`Rate limited. Retrying in ${Math.ceil(waitMs / 1000)}s...`);
+    await sleep(waitMs);
+    return fetchWithAuth(path, { retryCount: retryCount + 1 });
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -313,6 +333,7 @@ async function fetchPRsFromRuns(runs) {
   for (const run of runs) {
     processed += 1;
     setStatus(`Calculating PRs... ${processed}/${runs.length}`);
+    await sleep(250);
     const details = await fetchWithAuth(`/activities/${run.id}`);
     const bestEfforts = details.best_efforts || [];
 
