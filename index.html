@@ -31,24 +31,12 @@
       </section>
 
       <section class="card">
-        <h2>2) Enter client credentials</h2>
+        <h2>2) Log in with Strava</h2>
         <p class="note">
-          The credentials are stored only in your browser storage to keep all processing local.
-          Never use this on a shared computer.
+          Click below to authorize with Strava. This app never asks you for client credentials.
         </p>
-        <div class="grid">
-          <div class="field">
-            <label for="clientId">Client ID</label>
-            <input id="clientId" type="text" placeholder="12345" />
-          </div>
-          <div class="field">
-            <label for="clientSecret">Client Secret</label>
-            <input id="clientSecret" type="password" placeholder="••••••••" />
-          </div>
-        </div>
         <div class="actions">
-          <button id="saveConfig">Save settings</button>
-          <button id="connectStrava" class="primary">Connect to Strava</button>
+          <button id="connectStrava" class="primary">Log in with Strava</button>
           <button id="logout" class="ghost">Clear session</button>
         </div>
       </section>
@@ -87,7 +75,7 @@
 
     <footer class="footer">
       <p>
-        Built to keep all Strava interactions in your browser. No server required.
+        Built to keep all Strava interactions in your browser, with a minimal token exchange service.
       </p>
     </footer>
 

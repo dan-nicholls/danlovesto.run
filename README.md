@@ -6,7 +6,7 @@
 Browser-only Strava dashboard that runs entirely in your local browser storage.
 
 ## What changed
-This project has been rebuilt as a static, client-side app. All Strava OAuth, token storage, and API fetching happens locally in the browser—there is no backend server at all.
+This project has been rebuilt as a static, client-side app. The UI, dashboard rendering, and Strava API fetching happen locally in the browser. OAuth token exchanges are performed by a tiny server endpoint so you never expose your client secret in the UI.
 
 ## How to run
 You can serve the files with any static server or open `index.html` directly.
@@ -22,10 +22,10 @@ Then open `http://localhost:8080` in your browser.
 1. Create a Strava API application at https://www.strava.com/settings/api.
 2. Add the **Authorization Callback Domain** for the domain you're hosting this from (localhost for local testing).
 3. Use the redirect URL shown inside the app (it matches your current page URL).
-4. Paste the Client ID and Client Secret into the form and connect.
+4. Set the `CLIENT_ID` and `TOKEN_EXCHANGE_URL` constants in `app.js`.
 
-## Important security note
-Because this is fully browser-side, the Client Secret is stored in your browser storage so the app can exchange the OAuth code for a token. This keeps the project fully local and serverless, but it means you should only use this on a trusted device.
+## Token exchange service
+Strava's OAuth token endpoint requires your client secret, so a server-side endpoint is required to exchange the authorization code for tokens. Keep the server minimal—just forward the `client_id`, `client_secret`, and OAuth payload to `https://www.strava.com/oauth/token` and return the response. Then point `TOKEN_EXCHANGE_URL` at that endpoint.
 
 ## References
 - [Strava API Documentation](https://developers.strava.com/docs/reference/)

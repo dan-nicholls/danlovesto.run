@@ -1,6 +1,7 @@
+const CLIENT_ID = "";
+const TOKEN_EXCHANGE_URL = "";
+
 const storageKeys = {
-  clientId: "strava_client_id",
-  clientSecret: "strava_client_secret",
   accessToken: "strava_access_token",
   refreshToken: "strava_refresh_token",
   expiresAt: "strava_expires_at",
@@ -9,9 +10,6 @@ const storageKeys = {
 
 const elements = {
   redirectUri: document.getElementById("redirectUri"),
-  clientId: document.getElementById("clientId"),
-  clientSecret: document.getElementById("clientSecret"),
-  saveConfig: document.getElementById("saveConfig"),
   connectStrava: document.getElementById("connectStrava"),
   logout: document.getElementById("logout"),
   status: document.getElementById("status"),
@@ -31,17 +29,6 @@ elements.redirectUri.value = redirectUri;
 
 function setStatus(message) {
   elements.status.textContent = message;
-}
-
-function saveConfig() {
-  localStorage.setItem(storageKeys.clientId, elements.clientId.value.trim());
-  localStorage.setItem(storageKeys.clientSecret, elements.clientSecret.value.trim());
-  setStatus("Settings saved locally in your browser.");
-}
-
-function loadConfig() {
-  elements.clientId.value = localStorage.getItem(storageKeys.clientId) || "";
-  elements.clientSecret.value = localStorage.getItem(storageKeys.clientSecret) || "";
 }
 
 function storeToken({ access_token, refresh_token, expires_at }) {
@@ -74,7 +61,13 @@ function tokenExpired(token) {
 }
 
 async function exchangeToken(payload) {
-  const response = await fetch(`${STRAVA_OAUTH}/token`, {
+  if (!TOKEN_EXCHANGE_URL) {
+    throw new Error(
+      "Token exchange is not configured. Set TOKEN_EXCHANGE_URL in app.js to your server endpoint.",
+    );
+  }
+
+  const response = await fetch(TOKEN_EXCHANGE_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -89,12 +82,8 @@ async function exchangeToken(payload) {
 }
 
 async function refreshAccessToken(token) {
-  const clientId = localStorage.getItem(storageKeys.clientId);
-  const clientSecret = localStorage.getItem(storageKeys.clientSecret);
-
   const refreshed = await exchangeToken({
-    client_id: clientId,
-    client_secret: clientSecret,
+    client_id: CLIENT_ID,
     grant_type: "refresh_token",
     refresh_token: token.refreshToken,
   });
@@ -187,21 +176,16 @@ async function loadDashboard() {
 }
 
 function startAuthFlow() {
-  const clientId = elements.clientId.value.trim();
-  const clientSecret = elements.clientSecret.value.trim();
-
-  if (!clientId || !clientSecret) {
-    setStatus("Enter both client ID and secret first.");
+  if (!CLIENT_ID) {
+    setStatus("Missing Strava client ID in app.js.");
     return;
   }
-
-  saveConfig();
 
   const state = crypto.randomUUID();
   localStorage.setItem(storageKeys.oauthState, state);
 
   const params = new URLSearchParams({
-    client_id: clientId,
+    client_id: CLIENT_ID,
     redirect_uri: redirectUri,
     response_type: "code",
     scope: "read,activity:read_all",
@@ -234,12 +218,8 @@ async function handleAuthRedirect() {
   setStatus("Exchanging code for access token...");
 
   try {
-    const clientId = localStorage.getItem(storageKeys.clientId);
-    const clientSecret = localStorage.getItem(storageKeys.clientSecret);
-
     const tokenResponse = await exchangeToken({
-      client_id: clientId,
-      client_secret: clientSecret,
+      client_id: CLIENT_ID,
       code,
       grant_type: "authorization_code",
     });
@@ -253,13 +233,11 @@ async function handleAuthRedirect() {
 }
 
 function setupEventListeners() {
-  elements.saveConfig.addEventListener("click", saveConfig);
   elements.connectStrava.addEventListener("click", startAuthFlow);
   elements.logout.addEventListener("click", clearSession);
 }
 
 async function init() {
-  loadConfig();
   setupEventListeners();
 
   const token = getToken();
