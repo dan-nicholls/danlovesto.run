@@ -25,6 +25,10 @@ const elements = {
   activityCount: document.getElementById("activityCount"),
 };
 
+const state = {
+  prActivityIds: new Set(),
+};
+
 const STRAVA_API = "https://www.strava.com/api/v3";
 const STRAVA_OAUTH = "https://www.strava.com/oauth";
 
@@ -64,6 +68,7 @@ function clearSession() {
   elements.dashboard.hidden = true;
   setStatus("Session cleared.");
   setAuthState(false);
+  state.prActivityIds.clear();
 }
 
 function getToken() {
@@ -194,12 +199,6 @@ function renderRecentRuns(activities) {
   });
 }
 
-function hasPersonalRecord(activity) {
-  const prCount = activity.pr_count ?? 0;
-  const achievementCount = activity.achievement_count ?? 0;
-  return prCount > 0 || achievementCount > 0;
-}
-
 function renderAllActivities(activities) {
   elements.allRuns.innerHTML = "";
   elements.activityCount.textContent = `${activities.length} activities loaded`;
@@ -212,7 +211,8 @@ function renderAllActivities(activities) {
   activities.forEach((activity) => {
     const item = document.createElement("li");
     const date = new Date(activity.start_date).toLocaleDateString();
-    const prLabel = hasPersonalRecord(activity) ? "<span class=\"badge\">PR</span>" : "";
+    const isPr = state.prActivityIds.has(activity.id);
+    const prLabel = isPr ? "<span class=\"badge\">PR</span>" : "";
     item.innerHTML = `
       <div>
         <strong>${activity.name}</strong>
@@ -319,6 +319,7 @@ async function fetchPRsFromRuns(runs) {
           distance: effort.distance,
           elapsedTime: effort.elapsed_time,
           startDate: details.start_date,
+          activityId: details.id,
         });
       }
     });
@@ -346,10 +347,12 @@ async function loadDashboard() {
   elements.totalTime.textContent = formatDuration(runTotals.moving_time || 0);
 
   const runs = activities.filter((activity) => activity.type === "Run");
-  renderRecentRuns(runs.slice(0, 10));
-  renderAllActivities(activities);
   const prs = await fetchPRsFromRuns(runs);
   renderPRs(prs);
+  state.prActivityIds = new Set(prs.map((pr) => pr.activityId));
+
+  renderRecentRuns(runs.slice(0, 10));
+  renderAllActivities(activities);
 
   elements.dashboard.hidden = false;
   setStatus("Dashboard ready.");
