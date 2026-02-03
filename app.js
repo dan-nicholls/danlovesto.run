@@ -420,9 +420,9 @@ function renderPRs(prs) {
     row.type = "button";
     row.className = "pr-table-row";
     row.dataset.index = String(index);
-    const effortDate = pr.effortDate ? new Date(pr.effortDate).toLocaleDateString() : "—";
+    const effortDate = pr.startDate ? new Date(pr.startDate).toLocaleDateString() : "—";
     row.innerHTML = `
-      <span>${pr.effortName}</span>
+      <span>${pr.label}</span>
       <span class="meta">${effortDate}</span>
       <span>${formatTime(pr.elapsedTime)}</span>
     `;
