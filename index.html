@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>danlovesto.run</title>
+    <link rel="icon" href="docs/icon.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <img class="logo" src="docs/icon.png" alt="danlovesto.run logo" />
+        <div>
+          <h1>danlovesto.run</h1>
+          <p class="subtitle">Personal Strava dashboard running entirely in your browser.</p>
+        </div>
+      </header>
+
+      <section class="card">
+        <h2>Log in with Strava</h2>
+        <p class="note">
+          Click below to authorize with Strava. This app never asks you for client credentials.
+        </p>
+        <div class="actions">
+          <button id="connectStrava" class="primary">Log in with Strava</button>
+          <button id="logout" class="ghost">Clear session</button>
+        </div>
+      </section>
+
+      <section class="card" id="statusCard">
+        <h2>Status</h2>
+        <p id="status">Waiting for configuration.</p>
+      </section>
+
+      <section class="card" id="dashboard" hidden>
+        <h2>Your dashboard</h2>
+        <div class="stats">
+          <h3>Stats</h3>
+          <div id="statsGrid" class="stats-grid"></div>
+        </div>
+        <div class="dashboard-grid">
+          <div class="stat">
+            <span class="stat-label">Athlete</span>
+            <span id="athleteName" class="stat-value">—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Total runs</span>
+            <span id="totalRuns" class="stat-value">—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Total distance</span>
+            <span id="totalDistance" class="stat-value">—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Total moving time</span>
+            <span id="totalTime" class="stat-value">—</span>
+          </div>
+        </div>
+        <div class="recent">
+          <h3>Recent runs</h3>
+          <ul id="recentRuns" class="activity-list"></ul>
+        </div>
+        <div class="recent">
+          <h3>Personal records</h3>
+          <div class="pr-section">
+            <div class="pr-table">
+              <div class="pr-table-header">
+                <span>Best effort</span>
+                <span>Date</span>
+                <span>Time</span>
+              </div>
+              <div id="prTableBody" class="pr-table-body"></div>
+            </div>
+            <div class="pr-map-panel">
+              <div class="pr-panel-title">Map</div>
+              <div id="prMapContent" class="pr-panel-content">Select a record to view the map.</div>
+            </div>
+            <div class="pr-details-panel">
+              <div class="pr-panel-title">Activity details</div>
+              <div id="prDetailsContent" class="pr-panel-content">
+                Select a record to view activity details.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="recent">
+          <h3>Run heatmap</h3>
+          <p class="note">Total distance per day.</p>
+          <div id="heatmaps" class="heatmaps"></div>
+        </div>
+        <div class="recent">
+          <h3>All activities</h3>
+          <p class="note" id="activityCount">Loading activity list…</p>
+          <ul id="allRuns" class="activity-list activity-list--scroll"></ul>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>
+        Built to keep all Strava interactions in your browser, with a minimal token exchange service.
+      </p>
+    </footer>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

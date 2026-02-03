@@ -3,11 +3,29 @@
 </div>
 
 # danlovesto.run 🏃
-Personal run tracker and dashboard integrated with Strava
+Browser-only Strava dashboard that runs entirely in your local browser storage.
+
+## What changed
+This project has been rebuilt as a static, client-side app that runs with a tiny local server. The UI, dashboard rendering, and Strava API fetching happen locally in the browser. OAuth token exchanges are handled by the local server so you never expose your client secret in the UI.
+
+## How to run
+Create a local `.env` file based on the example and start the minimal server.
+
+```bash
+cp .env.example .env
+node server.js
+```
+
+Then open `http://localhost:5173` in your browser.
+
+## Configure Strava
+1. Create a Strava API application at https://www.strava.com/settings/api.
+2. Add the **Authorization Callback Domain** for the domain you're hosting this from (localhost for local testing).
+3. Set the `STRAVA_CLIENT_ID` and `STRAVA_CLIENT_SECRET` values in your `.env`.
+
+## Token exchange service
+Strava's OAuth token endpoint requires your client secret, so a server-side endpoint is required to exchange the authorization code for tokens. The included `server.js` reads secrets from `.env`, serves the static UI, and proxies `/oauth/token` to Strava.
 
 ## References
-
- - [Strava API Documentation](https://developers.strava.com/docs/reference/)
- - [Strava API Playground](https://developers.strava.com/playground/) - A Swagger web interface for interacting with the Strava API
- - [Mask](https://github.com/jacobdeichert/mask) - A CLI task runner via `.md`
- - [PB Viewer](https://pbviewer.com) - Web app to view current Strava PBs
+- [Strava API Documentation](https://developers.strava.com/docs/reference/)
+- [Strava API Playground](https://developers.strava.com/playground/)
