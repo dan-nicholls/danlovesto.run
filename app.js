@@ -186,8 +186,10 @@ async function fetchWithAuth(path, { retryCount = 0 } = {}) {
   return response.json();
 }
 
+const CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+
 async function fetchAllActivities() {
-  const cacheMaxAgeMs = 15 * 60 * 1000;
+  const cacheMaxAgeMs = CACHE_MAX_AGE_MS;
   const cached = getCachedItem(
     storageKeys.cachedActivities,
     storageKeys.cachedActivitiesAt,
@@ -359,7 +361,7 @@ function matchTarget(distance) {
 }
 
 async function fetchPRsFromRuns(runs) {
-  const cacheMaxAgeMs = 15 * 60 * 1000;
+  const cacheMaxAgeMs = CACHE_MAX_AGE_MS;
   const cached = getCachedItem(storageKeys.cachedPrs, storageKeys.cachedPrsAt, cacheMaxAgeMs);
   if (cached) {
     return cached;
