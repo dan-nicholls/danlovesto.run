@@ -232,6 +232,45 @@ button.ghost {
   gap: 16px;
 }
 
+.pr-row {
+  display: flex;
+  width: 100%;
+  gap: 16px;
+  align-items: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pr-row:hover strong {
+  color: #2563eb;
+}
+
+.pr-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pr-panel {
+  width: 100%;
+  background: #f4f6ff;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.pr-panel-meta {
+  display: grid;
+  gap: 10px;
+  min-width: 220px;
+}
+
 .activity-list--scroll {
   max-height: 360px;
   overflow-y: auto;

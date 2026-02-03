@@ -328,21 +328,49 @@ function renderPRs(prs) {
   prs.forEach((pr) => {
     const item = document.createElement("li");
     const date = pr.startDate ? new Date(pr.startDate).toLocaleDateString() : "—";
+    const effortDate = pr.effortDate ? new Date(pr.effortDate).toLocaleDateString() : "—";
+    const activityNumber = pr.activityId ? `#${pr.activityId}` : "—";
     item.innerHTML = `
-      <div class="pr-details">
-        <div>
+      <button class="pr-row" type="button" aria-expanded="false">
+        <div class="pr-details">
+          <div class="pr-header">
+            <span class="meta">Activity ${activityNumber}</span>
+            <span class="meta">${date}</span>
+          </div>
           <strong>${pr.label}</strong>
-          <span class="meta">${date}</span>
+          <span class="meta">${pr.activityName}</span>
+          <span class="meta">${formatDistance(pr.distance)}</span>
         </div>
-        <span class="meta">Best effort from ${pr.activityName}</span>
-        <span class="meta">${formatDistance(pr.distance)}</span>
+        <div class="activity-meta">
+          <span>${formatTime(pr.elapsedTime)}</span>
+          <span class="meta">${formatPace(pr.elapsedTime, pr.distance)}</span>
+        </div>
+      </button>
+      <div class="pr-panel" hidden>
+        <div class="pr-panel-meta">
+          <div>
+            <span class="meta">Best effort</span>
+            <div>${pr.effortName}</div>
+          </div>
+          <div>
+            <span class="meta">Effort date</span>
+            <div>${effortDate}</div>
+          </div>
+          <div>
+            <span class="meta">Effort time</span>
+            <div>${formatTime(pr.elapsedTime)}</div>
+          </div>
+        </div>
+        <div class="map-placeholder" aria-hidden="true">Map preview</div>
       </div>
-      <div class="activity-meta">
-        <span>${formatTime(pr.elapsedTime)}</span>
-        <span class="meta">${formatPace(pr.elapsedTime, pr.distance)}</span>
-      </div>
-      <div class="map-placeholder" aria-hidden="true">Map preview</div>
     `;
+    const rowButton = item.querySelector(".pr-row");
+    const panel = item.querySelector(".pr-panel");
+    rowButton.addEventListener("click", () => {
+      const isExpanded = rowButton.getAttribute("aria-expanded") === "true";
+      rowButton.setAttribute("aria-expanded", String(!isExpanded));
+      panel.hidden = isExpanded;
+    });
     elements.prList.appendChild(item);
   });
 }
@@ -390,6 +418,8 @@ async function fetchPRsFromRuns(runs) {
           startDate: details.start_date,
           activityId: details.id,
           activityName: details.name,
+          effortName: effort.name || target.label,
+          effortDate: details.start_date,
         });
       }
     });
