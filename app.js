@@ -25,6 +25,7 @@ const elements = {
   totalTime: document.getElementById("totalTime"),
   recentRuns: document.getElementById("recentRuns"),
   prList: document.getElementById("prList"),
+  heatmaps: document.getElementById("heatmaps"),
   allRuns: document.getElementById("allRuns"),
   activityCount: document.getElementById("activityCount"),
 };
@@ -400,6 +401,108 @@ async function fetchPRsFromRuns(runs) {
   return prs;
 }
 
+const HEATMAP_COLORS = [
+  "#f2f2fb",
+  "#dbe8ff",
+  "#b7d0ff",
+  "#7fb0ff",
+  "#4f8cff",
+  "#2563eb",
+];
+
+function getYearRange(dates) {
+  if (!dates.length) return [];
+  const years = dates.map((date) => date.getFullYear());
+  const minYear = Math.min(...years);
+  const maxYear = Math.max(...years);
+  return Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i);
+}
+
+function startOfYear(year) {
+  return new Date(Date.UTC(year, 0, 1));
+}
+
+function endOfYear(year) {
+  return new Date(Date.UTC(year, 11, 31));
+}
+
+function formatDayKey(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function buildHeatmapData(runs) {
+  const totals = new Map();
+  runs.forEach((run) => {
+    const date = new Date(run.start_date_local);
+    const key = formatDayKey(date);
+    totals.set(key, (totals.get(key) || 0) + run.distance);
+  });
+  return totals;
+}
+
+function getHeatColor(distance, maxDistance) {
+  if (!distance || maxDistance === 0) return HEATMAP_COLORS[0];
+  const intensity = distance / maxDistance;
+  if (intensity > 0.8) return HEATMAP_COLORS[5];
+  if (intensity > 0.6) return HEATMAP_COLORS[4];
+  if (intensity > 0.4) return HEATMAP_COLORS[3];
+  if (intensity > 0.2) return HEATMAP_COLORS[2];
+  return HEATMAP_COLORS[1];
+}
+
+function renderHeatmaps(runs) {
+  elements.heatmaps.innerHTML = "";
+
+  if (!runs.length) {
+    elements.heatmaps.innerHTML = "<p class=\"note\">No runs available for heatmap.</p>";
+    return;
+  }
+
+  const totals = buildHeatmapData(runs);
+  const dates = Array.from(totals.keys()).map((key) => new Date(key));
+  const years = getYearRange(dates);
+  const maxDistance = Math.max(...Array.from(totals.values()));
+
+  years.forEach((year) => {
+    const yearBlock = document.createElement("div");
+    yearBlock.className = "heatmap";
+
+    const header = document.createElement("div");
+    header.className = "heatmap-header";
+    header.textContent = String(year);
+
+    const grid = document.createElement("div");
+    grid.className = "heatmap-grid";
+
+    const start = startOfYear(year);
+    const end = endOfYear(year);
+    const totalDays = Math.round((end - start) / 86400000) + 1;
+    const startDay = start.getUTCDay();
+
+    const emptyPrefix = document.createElement("div");
+    emptyPrefix.className = "heatmap-cell heatmap-cell--empty";
+    for (let i = 0; i < startDay; i += 1) {
+      grid.appendChild(emptyPrefix.cloneNode());
+    }
+
+    for (let i = 0; i < totalDays; i += 1) {
+      const current = new Date(Date.UTC(year, 0, 1 + i));
+      const key = formatDayKey(current);
+      const distance = totals.get(key) || 0;
+      const cell = document.createElement("div");
+      cell.className = "heatmap-cell";
+      cell.style.background = getHeatColor(distance, maxDistance);
+      const tooltipDistance = distance ? formatDistance(distance) : "0 km";
+      cell.title = `${key}: ${tooltipDistance}`;
+      grid.appendChild(cell);
+    }
+
+    yearBlock.appendChild(header);
+    yearBlock.appendChild(grid);
+    elements.heatmaps.appendChild(yearBlock);
+  });
+}
+
 async function loadDashboard() {
   setStatus("Loading dashboard from Strava...");
 
@@ -420,6 +523,7 @@ async function loadDashboard() {
   state.prActivityIds = new Set(prs.map((pr) => pr.activityId));
 
   renderRecentRuns(runs.slice(0, 10));
+  renderHeatmaps(runs);
   renderAllActivities(activities);
 
   elements.dashboard.hidden = false;
