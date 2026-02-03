@@ -24,7 +24,9 @@ const elements = {
   totalDistance: document.getElementById("totalDistance"),
   totalTime: document.getElementById("totalTime"),
   recentRuns: document.getElementById("recentRuns"),
-  prList: document.getElementById("prList"),
+  prTableBody: document.getElementById("prTableBody"),
+  prMapContent: document.getElementById("prMapContent"),
+  prDetailsContent: document.getElementById("prDetailsContent"),
   heatmaps: document.getElementById("heatmaps"),
   allRuns: document.getElementById("allRuns"),
   activityCount: document.getElementById("activityCount"),
@@ -317,62 +319,128 @@ function formatTime(seconds) {
   return `${minutes}:${remainder}`;
 }
 
-function renderPRs(prs) {
-  elements.prList.innerHTML = "";
+function decodePolyline(encoded) {
+  if (!encoded) return [];
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+  const coordinates = [];
 
-  if (!prs.length) {
-    elements.prList.innerHTML = "<li>No PRs found yet.</li>";
+  while (index < encoded.length) {
+    let shift = 0;
+    let result = 0;
+    let byte = null;
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    const deltaLat = (result & 1) ? ~(result >> 1) : result >> 1;
+    lat += deltaLat;
+
+    shift = 0;
+    result = 0;
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    const deltaLng = (result & 1) ? ~(result >> 1) : result >> 1;
+    lng += deltaLng;
+
+    coordinates.push([lat / 1e5, lng / 1e5]);
+  }
+
+  return coordinates;
+}
+
+function renderPolylineSvg(encodedPolyline) {
+  const points = decodePolyline(encodedPolyline);
+  if (!points.length) return "<div class=\"map-placeholder\">No map data</div>";
+
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+  let minLng = Infinity;
+  let maxLng = -Infinity;
+  points.forEach(([lat, lng]) => {
+    minLat = Math.min(minLat, lat);
+    maxLat = Math.max(maxLat, lat);
+    minLng = Math.min(minLng, lng);
+    maxLng = Math.max(maxLng, lng);
+  });
+
+  const width = maxLng - minLng || 1;
+  const height = maxLat - minLat || 1;
+
+  const svgPoints = points
+    .map(([lat, lng]) => {
+      const x = (lng - minLng) / width;
+      const y = 1 - (lat - minLat) / height;
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  return `
+    <svg class="map-svg" viewBox="0 0 1 1" preserveAspectRatio="xMidYMid meet">
+      <polyline points="${svgPoints}" />
+    </svg>
+  `;
+}
+
+function renderPrSelection(pr) {
+  if (!pr) {
+    elements.prMapContent.textContent = "Select a record to view the map.";
+    elements.prDetailsContent.textContent = "Select a record to view activity details.";
     return;
   }
 
-  prs.forEach((pr) => {
-    const item = document.createElement("li");
-    const date = pr.startDate ? new Date(pr.startDate).toLocaleDateString() : "—";
+  const date = pr.startDate ? new Date(pr.startDate).toLocaleDateString() : "—";
+  elements.prMapContent.innerHTML = renderPolylineSvg(pr.summaryPolyline);
+  elements.prDetailsContent.innerHTML = `
+    <div class="pr-detail-row"><span class="meta">Activity</span><div>${pr.activityName}</div></div>
+    <div class="pr-detail-row"><span class="meta">Activity ID</span><div>#${pr.activityId}</div></div>
+    <div class="pr-detail-row"><span class="meta">Date</span><div>${date}</div></div>
+    <div class="pr-detail-row"><span class="meta">Distance</span><div>${formatDistance(pr.distance)}</div></div>
+    <div class="pr-detail-row"><span class="meta">Time</span><div>${formatTime(pr.elapsedTime)}</div></div>
+    <div class="pr-detail-row"><span class="meta">Pace</span><div>${formatPace(pr.elapsedTime, pr.distance)}</div></div>
+  `;
+}
+
+function renderPRs(prs) {
+  elements.prTableBody.innerHTML = "";
+
+  if (!prs.length) {
+    elements.prTableBody.innerHTML = "<div class=\"pr-table-empty\">No PRs found yet.</div>";
+    renderPrSelection(null);
+    return;
+  }
+
+  prs.forEach((pr, index) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "pr-table-row";
+    row.dataset.index = String(index);
     const effortDate = pr.effortDate ? new Date(pr.effortDate).toLocaleDateString() : "—";
-    const activityNumber = pr.activityId ? `#${pr.activityId}` : "—";
-    item.innerHTML = `
-      <button class="pr-row" type="button" aria-expanded="false">
-        <div class="pr-details">
-          <div class="pr-header">
-            <span class="meta">Activity ${activityNumber}</span>
-            <span class="meta">${date}</span>
-          </div>
-          <strong>${pr.label}</strong>
-          <span class="meta">${pr.activityName}</span>
-          <span class="meta">${formatDistance(pr.distance)}</span>
-        </div>
-        <div class="activity-meta">
-          <span>${formatTime(pr.elapsedTime)}</span>
-          <span class="meta">${formatPace(pr.elapsedTime, pr.distance)}</span>
-        </div>
-      </button>
-      <div class="pr-panel" hidden>
-        <div class="pr-panel-meta">
-          <div>
-            <span class="meta">Best effort</span>
-            <div>${pr.effortName}</div>
-          </div>
-          <div>
-            <span class="meta">Effort date</span>
-            <div>${effortDate}</div>
-          </div>
-          <div>
-            <span class="meta">Effort time</span>
-            <div>${formatTime(pr.elapsedTime)}</div>
-          </div>
-        </div>
-        <div class="map-placeholder" aria-hidden="true">Map preview</div>
-      </div>
+    row.innerHTML = `
+      <span>${pr.effortName}</span>
+      <span class="meta">${effortDate}</span>
+      <span>${formatTime(pr.elapsedTime)}</span>
     `;
-    const rowButton = item.querySelector(".pr-row");
-    const panel = item.querySelector(".pr-panel");
-    rowButton.addEventListener("click", () => {
-      const isExpanded = rowButton.getAttribute("aria-expanded") === "true";
-      rowButton.setAttribute("aria-expanded", String(!isExpanded));
-      panel.hidden = isExpanded;
+    row.addEventListener("click", () => {
+      document.querySelectorAll(".pr-table-row").forEach((button) => {
+        button.classList.remove("is-active");
+      });
+      row.classList.add("is-active");
+      renderPrSelection(pr);
     });
-    elements.prList.appendChild(item);
+    elements.prTableBody.appendChild(row);
   });
+
+  const firstRow = elements.prTableBody.querySelector(".pr-table-row");
+  if (firstRow) {
+    firstRow.classList.add("is-active");
+    renderPrSelection(prs[0]);
+  }
 }
 
 function matchTarget(distance) {
@@ -420,6 +488,7 @@ async function fetchPRsFromRuns(runs) {
           activityName: details.name,
           effortName: effort.name || target.label,
           effortDate: details.start_date,
+          summaryPolyline: details.map?.summary_polyline || "",
         });
       }
     });
