@@ -473,6 +473,17 @@ function renderHeatmaps(runs) {
     header.className = "heatmap-header";
     header.textContent = String(year);
 
+    const body = document.createElement("div");
+    body.className = "heatmap-body";
+
+    const yLabels = document.createElement("div");
+    yLabels.className = "heatmap-y-labels";
+    ["M", "T", "W", "T", "F", "S", "S"].forEach((label) => {
+      const span = document.createElement("span");
+      span.textContent = label;
+      yLabels.appendChild(span);
+    });
+
     const grid = document.createElement("div");
     grid.className = "heatmap-grid";
 
@@ -481,34 +492,59 @@ function renderHeatmaps(runs) {
       ? new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()))
       : endOfYear(year);
     const totalDays = Math.round((end - start) / 86400000) + 1;
-    const startDay = start.getUTCDay();
-
-    const emptyPrefix = document.createElement("div");
-    emptyPrefix.className = "heatmap-cell heatmap-cell--empty";
-    for (let i = 0; i < startDay; i += 1) {
-      grid.appendChild(emptyPrefix.cloneNode());
-    }
+    const startDay = (start.getUTCDay() + 6) % 7;
+    const totalWeeks = Math.ceil((startDay + totalDays) / 7);
+    grid.style.gridTemplateColumns = `repeat(${totalWeeks}, 12px)`;
 
     for (let i = 0; i < totalDays; i += 1) {
       const current = new Date(Date.UTC(year, 0, 1 + i));
       const key = formatDayKey(current);
-      if (key > todayKey) {
-        const futureCell = document.createElement("div");
-        futureCell.className = "heatmap-cell heatmap-cell--empty";
-        grid.appendChild(futureCell);
-        continue;
-      }
       const distance = totals.get(key) || 0;
+      const weekIndex = Math.floor((startDay + i) / 7);
+      const dayIndex = (startDay + i) % 7;
       const cell = document.createElement("div");
       cell.className = "heatmap-cell";
       cell.style.background = getHeatColor(distance, maxDistance);
+      cell.style.gridColumn = String(weekIndex + 1);
+      cell.style.gridRow = String(dayIndex + 1);
       const tooltipDistance = distance ? formatDistance(distance) : "0 km";
-      cell.title = `${key}: ${tooltipDistance}`;
+      cell.dataset.tooltip = `${key}: ${tooltipDistance}`;
+      cell.dataset.date = key;
+      cell.dataset.distance = tooltipDistance;
       grid.appendChild(cell);
     }
 
+    const tooltip = document.createElement("div");
+    tooltip.className = "heatmap-tooltip";
+    tooltip.setAttribute("role", "tooltip");
+    tooltip.hidden = true;
+
+    grid.addEventListener("mousemove", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !target.classList.contains("heatmap-cell")) {
+        tooltip.hidden = true;
+        return;
+      }
+      const rect = target.getBoundingClientRect();
+      const containerRect = yearBlock.getBoundingClientRect();
+      tooltip.innerHTML = `
+        <div>${target.dataset.date}</div>
+        <div>${target.dataset.distance}</div>
+      `;
+      tooltip.style.left = `${rect.left - containerRect.left + rect.width / 2}px`;
+      tooltip.style.top = `${rect.top - containerRect.top - 8}px`;
+      tooltip.hidden = false;
+    });
+
+    grid.addEventListener("mouseleave", () => {
+      tooltip.hidden = true;
+    });
+
+    body.appendChild(yLabels);
+    body.appendChild(grid);
     yearBlock.appendChild(header);
-    yearBlock.appendChild(grid);
+    yearBlock.appendChild(body);
+    yearBlock.appendChild(tooltip);
     elements.heatmaps.appendChild(yearBlock);
   });
 }
