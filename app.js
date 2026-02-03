@@ -414,8 +414,8 @@ function getYearRange(dates) {
   if (!dates.length) return [];
   const years = dates.map((date) => date.getFullYear());
   const minYear = Math.min(...years);
-  const maxYear = Math.max(...years);
-  return Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i);
+  const currentYear = new Date().getFullYear();
+  return Array.from({ length: currentYear - minYear + 1 }, (_, i) => minYear + i);
 }
 
 function startOfYear(year) {
@@ -460,8 +460,10 @@ function renderHeatmaps(runs) {
 
   const totals = buildHeatmapData(runs);
   const dates = Array.from(totals.keys()).map((key) => new Date(key));
-  const years = getYearRange(dates);
+  const years = getYearRange(dates).reverse();
   const maxDistance = Math.max(...Array.from(totals.values()));
+  const today = new Date();
+  const todayKey = formatDayKey(new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())));
 
   years.forEach((year) => {
     const yearBlock = document.createElement("div");
@@ -475,7 +477,9 @@ function renderHeatmaps(runs) {
     grid.className = "heatmap-grid";
 
     const start = startOfYear(year);
-    const end = endOfYear(year);
+    const end = year === today.getFullYear()
+      ? new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()))
+      : endOfYear(year);
     const totalDays = Math.round((end - start) / 86400000) + 1;
     const startDay = start.getUTCDay();
 
@@ -488,6 +492,12 @@ function renderHeatmaps(runs) {
     for (let i = 0; i < totalDays; i += 1) {
       const current = new Date(Date.UTC(year, 0, 1 + i));
       const key = formatDayKey(current);
+      if (key > todayKey) {
+        const futureCell = document.createElement("div");
+        futureCell.className = "heatmap-cell heatmap-cell--empty";
+        grid.appendChild(futureCell);
+        continue;
+      }
       const distance = totals.get(key) || 0;
       const cell = document.createElement("div");
       cell.className = "heatmap-cell";
