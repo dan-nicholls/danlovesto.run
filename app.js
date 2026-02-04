@@ -195,11 +195,18 @@ async function fetchWithAuth(path, { retryCount = 0 } = {}) {
     } else if (!Number.isNaN(resetAt) && resetAt > 0) {
       waitMs = Math.max(resetAt * 1000 - Date.now(), 1000);
     } else {
-      waitMs = 1000 * (retryCount + 1);
+      waitMs = 15 * 60 * 1000;
     }
     setStatus(`Rate limited. Retrying in ${Math.ceil(waitMs / 1000)}s...`);
     await sleep(waitMs);
     return fetchWithAuth(path, { retryCount: retryCount + 1 });
+  }
+
+  if (response.status === 429) {
+    const waitMs = 15 * 60 * 1000;
+    setStatus("Rate limited. Waiting 15 minutes before retrying...");
+    await sleep(waitMs);
+    return fetchWithAuth(path, { retryCount: 0 });
   }
 
   if (!response.ok) {
