@@ -296,80 +296,194 @@ function renderBarChart(values, labels) {
   `;
 }
 
+function countWeekdays(startDate, endDate) {
+  const counts = Array.from({ length: 7 }, () => 0);
+  if (!startDate || !endDate) return counts;
+  const current = new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()));
+  const end = new Date(Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()));
+  while (current <= end) {
+    const weekday = (current.getUTCDay() + 6) % 7;
+    counts[weekday] += 1;
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+  return counts;
+}
+
+function bucketize(value, thresholds) {
+  for (let i = 0; i < thresholds.length; i += 1) {
+    if (value <= thresholds[i]) return i;
+  }
+  return thresholds.length;
+}
+
 function renderStats(runs) {
   if (!elements.statsGrid) return;
+  if (!runs.length) {
+    elements.statsGrid.innerHTML = "<div class=\"stats-card\">No stats yet.</div>";
+    return;
+  }
+
   const totalDistance = runs.reduce((sum, run) => sum + (run.distance || 0), 0);
   const totalTime = runs.reduce((sum, run) => sum + (run.moving_time || 0), 0);
-  const totalElev = runs.reduce((sum, run) => sum + (run.total_elevation_gain || 0), 0);
-  const longestRun = runs.reduce((max, run) => Math.max(max, run.distance || 0), 0);
   const avgPace = totalDistance > 0 ? totalTime / (totalDistance / 1000) : 0;
-  const avgDistance = runs.length ? totalDistance / runs.length : 0;
 
   const distanceByYear = new Map();
-  const runsByWeekday = Array.from({ length: 7 }, () => 0);
+  const distanceByWeekday = Array.from({ length: 7 }, () => 0);
   const distanceByMonth = Array.from({ length: 12 }, () => 0);
+
+  const distanceBins = [1, 3, 5, 6, 8, 10];
+  const distanceBinCounts = Array.from({ length: distanceBins.length + 1 }, () => 0);
+
+  const paceBins = [4, 5, 6, 7, 8];
+  const paceBinCounts = Array.from({ length: paceBins.length + 1 }, () => 0);
+
+  const startTimes = runs.map((run) => new Date(run.start_date_local));
+  const firstDate = new Date(Math.min(...startTimes.map((date) => date.getTime())));
+  const today = new Date();
+  const weekdayTotals = countWeekdays(firstDate, today);
+
+  const detailsCache = getCachedDetailsMap();
+  const detailsMap = detailsCache.map;
+  const friendCounts = { with: 0, solo: 0, unknown: 0 };
+  const tempBins = [0, 5, 10, 15, 20, 25];
+  const tempBinCounts = Array.from({ length: tempBins.length + 1 }, () => 0);
+  let tempUnknown = 0;
+  const weatherCounts = { sun: 0, cloud: 0, rain: 0, unknown: 0 };
+
+  const timeOfDayCounts = { morning: 0, afternoon: 0, evening: 0, night: 0 };
+  const elevationByYear = new Map();
 
   runs.forEach((run) => {
     const date = new Date(run.start_date_local);
     const year = date.getFullYear();
-    distanceByYear.set(year, (distanceByYear.get(year) || 0) + (run.distance || 0) / 1000);
+    const distanceKm = (run.distance || 0) / 1000;
     const weekday = (date.getDay() + 6) % 7;
-    runsByWeekday[weekday] += 1;
-    distanceByMonth[date.getMonth()] += (run.distance || 0) / 1000;
+    const pace = run.distance ? (run.moving_time || 0) / distanceKm / 60 : 0;
+
+    distanceByYear.set(year, (distanceByYear.get(year) || 0) + distanceKm);
+    distanceByWeekday[weekday] += distanceKm;
+    distanceByMonth[date.getMonth()] += distanceKm;
+
+    distanceBinCounts[bucketize(distanceKm, distanceBins)] += 1;
+    if (pace > 0) {
+      paceBinCounts[bucketize(pace, paceBins)] += 1;
+    }
+
+    const hour = date.getHours();
+    if (hour >= 5 && hour < 12) timeOfDayCounts.morning += 1;
+    else if (hour >= 12 && hour < 17) timeOfDayCounts.afternoon += 1;
+    else if (hour >= 17 && hour < 21) timeOfDayCounts.evening += 1;
+    else timeOfDayCounts.night += 1;
+
+    elevationByYear.set(
+      year,
+      (elevationByYear.get(year) || 0) + (run.total_elevation_gain || 0),
+    );
+
+    const details = detailsMap[run.id];
+    if (details?.athlete_count) {
+      if (details.athlete_count > 1) friendCounts.with += 1;
+      else friendCounts.solo += 1;
+    } else {
+      friendCounts.unknown += 1;
+    }
+
+    if (typeof details?.average_temp === "number") {
+      tempBinCounts[bucketize(details.average_temp, tempBins)] += 1;
+    } else {
+      tempUnknown += 1;
+    }
+
+    const weather = details?.weather ?? details?.weather_type ?? "unknown";
+    if (weather === "sun" || weather === "clear") weatherCounts.sun += 1;
+    else if (weather === "cloud" || weather === "cloudy") weatherCounts.cloud += 1;
+    else if (weather === "rain" || weather === "rainy") weatherCounts.rain += 1;
+    else weatherCounts.unknown += 1;
   });
 
   const years = Array.from(distanceByYear.keys()).sort((a, b) => a - b);
   const yearValues = years.map((year) => distanceByYear.get(year));
   const yearLabels = years.map((year) => String(year));
 
-  const weekdayLabels = ["M", "T", "W", "T", "F", "S", "S"];
-  const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const avgKmByWeekday = distanceByWeekday.map((distance, index) => {
+    const totalDays = weekdayTotals[index] || 1;
+    return distance / totalDays;
+  });
 
+  const distanceBinLabels = ["0-1", "1-3", "3-5", "5-6", "6-8", "8-10", "10+"].map(
+    (label) => `${label} km`,
+  );
+  const paceBinLabels = ["<4", "4-5", "5-6", "6-7", "7-8", "8+"].map(
+    (label) => `${label} min/km`,
+  );
+  const tempBinLabels = ["<0", "0-5", "5-10", "10-15", "15-20", "20-25", "25+"].map(
+    (label) => `${label}°C`,
+  );
+
+  const friendLabels = ["With friends", "Solo", "Unknown"];
+  const friendValues = [friendCounts.with, friendCounts.solo, friendCounts.unknown];
+
+  const weatherLabels = ["Sun", "Cloud", "Rain", "Unknown"];
+  const weatherValues = [weatherCounts.sun, weatherCounts.cloud, weatherCounts.rain, weatherCounts.unknown];
+
+  const tempValues = [...tempBinCounts, tempUnknown];
+  const tempLabels = [...tempBinLabels, "Unknown"];
+
+  const timeLabels = ["Morning", "Afternoon", "Evening", "Night"];
+  const timeValues = [
+    timeOfDayCounts.morning,
+    timeOfDayCounts.afternoon,
+    timeOfDayCounts.evening,
+    timeOfDayCounts.night,
+  ];
+
+  const elevValues = years.map((year) => (elevationByYear.get(year) || 0) / 1000);
   const stats = [
     {
-      title: "Total distance",
-      value: formatDistance(totalDistance),
-      subtitle: "All-time runs",
-    },
-    {
-      title: "Total runs",
-      value: `${runs.length}`,
-      subtitle: "All-time count",
-    },
-    {
-      title: "Total time",
-      value: formatSeconds(totalTime),
-      subtitle: "Moving time",
-    },
-    {
-      title: "Longest run",
-      value: formatDistance(longestRun),
-      subtitle: "Single activity",
-    },
-    {
-      title: "Average pace",
-      value: avgPace ? `${formatTime(avgPace)} / km` : "—",
-      subtitle: "All-time average",
-    },
-    {
-      title: "Avg distance",
-      value: formatDistance(avgDistance),
-      subtitle: "Per run",
-    },
-    {
-      title: "Distance by year",
+      title: "Distance per year",
       value: `${years.length} yrs`,
       chart: renderBarChart(yearValues, yearLabels),
     },
     {
-      title: "Runs by weekday",
-      value: "All time",
-      chart: renderBarChart(runsByWeekday, weekdayLabels),
+      title: "Avg km per day",
+      value: `${(totalDistance / 1000 / weekdayTotals.reduce((sum, count) => sum + count, 1)).toFixed(1)} km`,
+      chart: renderBarChart(avgKmByWeekday, weekdayLabels),
     },
     {
-      title: "Distance by month",
-      value: "All time",
-      chart: renderBarChart(distanceByMonth, monthLabels),
+      title: "Run distance bins",
+      value: `${runs.length} runs`,
+      chart: renderBarChart(distanceBinCounts, distanceBinLabels),
+    },
+    {
+      title: "Pace distribution",
+      value: avgPace ? `${avgPace.toFixed(1)} min/km` : "—",
+      chart: renderBarChart(paceBinCounts, paceBinLabels),
+    },
+    {
+      title: "Runs with friends",
+      value: `${friendCounts.with} group`,
+      chart: renderBarChart(friendValues, friendLabels),
+    },
+    {
+      title: "Temp vs runs",
+      value: tempUnknown ? "Partial" : "All runs",
+      chart: renderBarChart(tempValues, tempLabels),
+    },
+    {
+      title: "Weather vs runs",
+      value: weatherCounts.unknown ? "Partial" : "All runs",
+      chart: renderBarChart(weatherValues, weatherLabels),
+    },
+    {
+      title: "Runs by time of day",
+      value: `${runs.length} runs`,
+      chart: renderBarChart(timeValues, timeLabels),
+    },
+    {
+      title: "Elevation per year",
+      value: "km gain",
+      chart: renderBarChart(elevValues, yearLabels),
     },
   ];
 
@@ -378,9 +492,8 @@ function renderStats(runs) {
       <div class="stats-card">
         <div class="stats-card-header">
           <span>${stat.title}</span>
-          <span class="stats-subtitle">${stat.subtitle ?? ""}</span>
+          <span class="stats-subtitle">${stat.value}</span>
         </div>
-        <div class="stats-value">${stat.value}</div>
         ${stat.chart || ""}
       </div>
     `)
