@@ -329,6 +329,7 @@ function renderStats(runs) {
 
   const distanceByYear = new Map();
   const distanceByWeekday = Array.from({ length: 7 }, () => 0);
+  const runsByWeekday = Array.from({ length: 7 }, () => 0);
   const distanceByMonth = Array.from({ length: 12 }, () => 0);
 
   const distanceBins = [1, 3, 5, 6, 8, 10];
@@ -336,11 +337,6 @@ function renderStats(runs) {
 
   const paceBins = [4, 5, 6, 7, 8];
   const paceBinCounts = Array.from({ length: paceBins.length + 1 }, () => 0);
-
-  const startTimes = runs.map((run) => new Date(run.start_date_local));
-  const firstDate = new Date(Math.min(...startTimes.map((date) => date.getTime())));
-  const today = new Date();
-  const weekdayTotals = countWeekdays(firstDate, today);
 
   const detailsCache = getCachedDetailsMap();
   const detailsMap = detailsCache.map;
@@ -362,6 +358,7 @@ function renderStats(runs) {
 
     distanceByYear.set(year, (distanceByYear.get(year) || 0) + distanceKm);
     distanceByWeekday[weekday] += distanceKm;
+    runsByWeekday[weekday] += 1;
     distanceByMonth[date.getMonth()] += distanceKm;
 
     distanceBinCounts[bucketize(distanceKm, distanceBins)] += 1;
@@ -407,8 +404,8 @@ function renderStats(runs) {
 
   const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const avgKmByWeekday = distanceByWeekday.map((distance, index) => {
-    const totalDays = weekdayTotals[index] || 1;
-    return distance / totalDays;
+    const runCount = runsByWeekday[index] || 1;
+    return distance / runCount;
   });
 
   const distanceBinLabels = ["0-1", "1-3", "3-5", "5-6", "6-8", "8-10", "10+"].map(
@@ -447,7 +444,7 @@ function renderStats(runs) {
     },
     {
       title: "Avg km per day",
-      value: `${(totalDistance / 1000 / weekdayTotals.reduce((sum, count) => sum + count, 1)).toFixed(1)} km`,
+      value: `${(totalDistance / 1000 / runs.length).toFixed(1)} km`,
       chart: renderBarChart(avgKmByWeekday, weekdayLabels),
     },
     {
