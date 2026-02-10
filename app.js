@@ -225,27 +225,36 @@ async function fetchAllActivities() {
     storageKeys.cachedActivitiesAt,
     cacheMaxAgeMs,
   );
-  if (cached) {
-    if (cached.isStale) {
-      setStatus("Using cached activities (stale). Clear session to refresh.");
-    }
+  if (cached && !cached.isStale) {
     return cached.value;
+  }
+
+  if (cached?.isStale) {
+    setStatus("Refreshing activities from Strava...");
   }
 
   const allActivities = [];
   let page = 1;
   const perPage = 200;
 
-  while (true) {
-    const chunk = await fetchWithAuth(`/athlete/activities?per_page=${perPage}&page=${page}`);
-    if (!chunk.length) break;
-    allActivities.push(...chunk);
-    if (chunk.length < perPage) break;
-    page += 1;
-  }
+  try {
+    while (true) {
+      const chunk = await fetchWithAuth(`/athlete/activities?per_page=${perPage}&page=${page}`);
+      if (!chunk.length) break;
+      allActivities.push(...chunk);
+      if (chunk.length < perPage) break;
+      page += 1;
+    }
 
-  setCachedItem(storageKeys.cachedActivities, storageKeys.cachedActivitiesAt, allActivities);
-  return allActivities;
+    setCachedItem(storageKeys.cachedActivities, storageKeys.cachedActivitiesAt, allActivities);
+    return allActivities;
+  } catch (error) {
+    if (cached) {
+      setStatus("Using cached activities (stale). Clear session to refresh.");
+      return cached.value;
+    }
+    throw error;
+  }
 }
 
 function formatDistance(meters) {
@@ -725,11 +734,12 @@ function matchTarget(distance) {
 async function fetchPRsFromRuns(runs) {
   const cacheMaxAgeMs = CACHE_MAX_AGE_MS;
   const cached = getCachedItem(storageKeys.cachedPrs, storageKeys.cachedPrsAt, cacheMaxAgeMs);
-  if (cached) {
-    if (cached.isStale) {
-      setStatus("Using cached PRs (stale). Clear session to refresh.");
-    }
+  if (cached && !cached.isStale) {
     return cached.value;
+  }
+
+  if (cached?.isStale) {
+    setStatus("Refreshing PRs from Strava...");
   }
 
   const cachedDetails = getCachedDetailsMap();
@@ -738,44 +748,52 @@ async function fetchPRsFromRuns(runs) {
   const prMap = new Map();
   let processed = 0;
 
-  for (const run of runs) {
-    processed += 1;
-    setStatus(`Calculating PRs... ${processed}/${runs.length}`);
-    await sleep(250);
-    let details = detailsMap[run.id];
-    if (!details) {
-      details = await fetchWithAuth(`/activities/${run.id}`);
-      detailsMap[run.id] = details;
-    }
-    const bestEfforts = details.best_efforts || [];
-
-    bestEfforts.forEach((effort) => {
-      const target = matchTarget(effort.distance);
-      if (!target) return;
-      const existing = prMap.get(target.label);
-      if (!existing || effort.elapsed_time < existing.elapsedTime) {
-        const effortLabel = effort.name?.trim() || target.label || "Best effort";
-        const effortDate = effort.start_date || details.start_date;
-        prMap.set(target.label, {
-          label: target.label,
-          distance: effort.distance,
-          elapsedTime: effort.elapsed_time,
-          startDate: details.start_date,
-          activityId: details.id,
-          activityName: details.name,
-          effortName: effortLabel,
-          effortDate,
-          summaryPolyline: details.map?.summary_polyline || "",
-        });
+  try {
+    for (const run of runs) {
+      processed += 1;
+      setStatus(`Calculating PRs... ${processed}/${runs.length}`);
+      await sleep(250);
+      let details = detailsMap[run.id];
+      if (!details) {
+        details = await fetchWithAuth(`/activities/${run.id}`);
+        detailsMap[run.id] = details;
       }
-    });
+      const bestEfforts = details.best_efforts || [];
 
+      bestEfforts.forEach((effort) => {
+        const target = matchTarget(effort.distance);
+        if (!target) return;
+        const existing = prMap.get(target.label);
+        if (!existing || effort.elapsed_time < existing.elapsedTime) {
+          const effortLabel = effort.name?.trim() || target.label || "Best effort";
+          const effortDate = effort.start_date || details.start_date;
+          prMap.set(target.label, {
+            label: target.label,
+            distance: effort.distance,
+            elapsedTime: effort.elapsed_time,
+            startDate: details.start_date,
+            activityId: details.id,
+            activityName: details.name,
+            effortName: effortLabel,
+            effortDate,
+            summaryPolyline: details.map?.summary_polyline || "",
+          });
+        }
+      });
+
+    }
+
+    const prs = PR_TARGETS.map((target) => prMap.get(target.label)).filter(Boolean);
+    setCachedDetailsMap(detailsMap);
+    setCachedItem(storageKeys.cachedPrs, storageKeys.cachedPrsAt, prs);
+    return prs;
+  } catch (error) {
+    if (cached) {
+      setStatus("Using cached PRs (stale). Clear session to refresh.");
+      return cached.value;
+    }
+    throw error;
   }
-
-  const prs = PR_TARGETS.map((target) => prMap.get(target.label)).filter(Boolean);
-  setCachedDetailsMap(detailsMap);
-  setCachedItem(storageKeys.cachedPrs, storageKeys.cachedPrsAt, prs);
-  return prs;
 }
 
 const HEATMAP_COLORS = [
