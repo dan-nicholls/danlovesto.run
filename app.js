@@ -19,8 +19,13 @@ const storageKeys = {
 const elements = {
   connectStrava: document.getElementById("connectStrava"),
   logout: document.getElementById("logout"),
+  clearSession: document.getElementById("clearSession"),
   status: document.getElementById("status"),
+  statusCard: document.getElementById("statusCard"),
+  authCard: document.getElementById("authCard"),
   dashboard: document.getElementById("dashboard"),
+  menuToggle: document.getElementById("menuToggle"),
+  menuPanel: document.getElementById("menuPanel"),
   athleteName: document.getElementById("athleteName"),
   totalRuns: document.getElementById("totalRuns"),
   totalDistance: document.getElementById("totalDistance"),
@@ -45,6 +50,9 @@ const redirectUri = `${window.location.origin}${window.location.pathname}`;
 
 function setStatus(message) {
   elements.status.textContent = message;
+  if (!elements.statusCard) return;
+  const shouldHide = message === "Dashboard ready." && !elements.dashboard.hidden;
+  elements.statusCard.hidden = shouldHide;
 }
 
 function sleep(ms) {
@@ -53,7 +61,15 @@ function sleep(ms) {
 
 function setAuthState(isAuthenticated) {
   elements.connectStrava.hidden = isAuthenticated;
-  elements.logout.hidden = !isAuthenticated;
+  if (elements.authCard) {
+    elements.authCard.hidden = isAuthenticated;
+  }
+  if (elements.menuToggle) {
+    elements.menuToggle.hidden = !isAuthenticated;
+  }
+  if (elements.menuPanel && !isAuthenticated) {
+    elements.menuPanel.hidden = true;
+  }
 }
 
 async function loadConfig() {
@@ -671,12 +687,56 @@ function renderPrSelection(pr) {
   const date = pr.startDate ? new Date(pr.startDate).toLocaleDateString() : "—";
   elements.prMapContent.innerHTML = renderPolylineSvg(pr.summaryPolyline);
   elements.prDetailsContent.innerHTML = `
-    <div class="pr-detail-row"><span class="meta">Activity</span><div>${pr.activityName}</div></div>
-    <div class="pr-detail-row"><span class="meta">Activity ID</span><div>#${pr.activityId}</div></div>
-    <div class="pr-detail-row"><span class="meta">Date</span><div>${date}</div></div>
-    <div class="pr-detail-row"><span class="meta">Distance</span><div>${formatDistance(pr.distance)}</div></div>
-    <div class="pr-detail-row"><span class="meta">Time</span><div>${formatTime(pr.elapsedTime)}</div></div>
-    <div class="pr-detail-row"><span class="meta">Pace</span><div>${formatPace(pr.elapsedTime, pr.distance)}</div></div>
+    <div class="pr-details-meta">
+      <span class="meta">Day —</span>
+      <span class="meta">${date}</span>
+    </div>
+    <div class="pr-details-hero">
+      <div class="pr-details-title">${pr.activityName || pr.effortName || "Run"}</div>
+    </div>
+    <div class="pr-metrics">
+      <div class="pr-metric">
+        <span class="label">Distance</span>
+        <span class="value">${formatDistance(pr.distance)}</span>
+      </div>
+      <div class="pr-metric">
+        <span class="label">Time</span>
+        <span class="value">${formatTime(pr.elapsedTime)}</span>
+      </div>
+      <div class="pr-metric">
+        <span class="label">Pace</span>
+        <span class="value">${formatPace(pr.elapsedTime, pr.distance)}</span>
+      </div>
+      <div class="pr-metric">
+        <span class="label">Elevation</span>
+        <span class="value">—</span>
+      </div>
+      <div class="pr-metric">
+        <span class="label">Weather</span>
+        <span class="value">—</span>
+      </div>
+      <div class="pr-metric">
+        <span class="label">Location</span>
+        <span class="value">—</span>
+      </div>
+    </div>
+    <div class="pr-details-footer">
+      <div class="pr-footer-title">Personal best</div>
+      <div class="pr-footer-grid">
+        <div>
+          <span class="meta">Distance</span>
+          <span>${pr.label || formatDistance(pr.distance)}</span>
+        </div>
+        <div>
+          <span class="meta">Time</span>
+          <span>${formatTime(pr.elapsedTime)}</span>
+        </div>
+        <div>
+          <span class="meta">Pace</span>
+          <span>${formatPace(pr.elapsedTime, pr.distance)}</span>
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -695,8 +755,9 @@ function renderPRs(prs) {
     row.className = "pr-table-row";
     row.dataset.index = String(index);
     const effortDate = pr.effortDate ? new Date(pr.effortDate).toLocaleDateString() : "—";
+    const distanceLabel = pr.label || formatDistance(pr.distance);
     row.innerHTML = `
-      <span>${pr.effortName || pr.label || "Best effort"}</span>
+      <span>${distanceLabel}</span>
       <span class="meta">${effortDate}</span>
       <span>${formatTime(pr.elapsedTime)}</span>
     `;
@@ -860,13 +921,34 @@ function renderHeatmaps(runs) {
   const today = new Date();
   const todayKey = formatDayKey(new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())));
 
+  const getTotalWeeks = (year) => {
+    const start = startOfYear(year);
+    const end = year === today.getFullYear()
+      ? new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()))
+      : endOfYear(year);
+    const totalDays = Math.round((end - start) / 86400000) + 1;
+    const startDay = (start.getUTCDay() + 6) % 7;
+    return Math.ceil((startDay + totalDays) / 7);
+  };
+
+  const maxWeeks = Math.max(...years.map((year) => getTotalWeeks(year)));
+
   years.forEach((year) => {
     const yearBlock = document.createElement("div");
     yearBlock.className = "heatmap";
 
     const header = document.createElement("div");
     header.className = "heatmap-header";
-    header.textContent = String(year);
+
+    const yearLabel = document.createElement("span");
+    yearLabel.className = "heatmap-year";
+    yearLabel.textContent = String(year);
+
+    const yearSummary = document.createElement("span");
+    yearSummary.className = "heatmap-summary";
+
+    header.appendChild(yearLabel);
+    header.appendChild(yearSummary);
 
     const body = document.createElement("div");
     body.className = "heatmap-body";
@@ -890,6 +972,20 @@ function renderHeatmaps(runs) {
     const startDay = (start.getUTCDay() + 6) % 7;
     const totalWeeks = Math.ceil((startDay + totalDays) / 7);
     grid.style.gridTemplateColumns = `repeat(${totalWeeks}, 12px)`;
+    const gridWidth = totalWeeks * 12 + (totalWeeks - 1) * 4;
+    const outerWidth = maxWeeks * 12 + (maxWeeks - 1) * 4;
+
+    const gridOuter = document.createElement("div");
+    gridOuter.className = "heatmap-grid-outer";
+    gridOuter.style.width = `${outerWidth}px`;
+
+    const gridWrap = document.createElement("div");
+    gridWrap.className = "heatmap-grid-wrap";
+    gridWrap.style.width = `${gridWidth}px`;
+
+    const xLabels = document.createElement("div");
+    xLabels.className = "heatmap-x-labels";
+    xLabels.style.gridTemplateColumns = `repeat(${totalWeeks}, 12px)`;
 
     for (let i = 0; i < totalDays; i += 1) {
       const current = new Date(Date.UTC(year, 0, 1 + i));
@@ -908,6 +1004,27 @@ function renderHeatmaps(runs) {
       cell.dataset.distance = tooltipDistance;
       grid.appendChild(cell);
     }
+
+    const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    monthLabels.forEach((label, monthIndex) => {
+      const monthStart = new Date(Date.UTC(year, monthIndex, 1));
+      const dayOffset = Math.round((monthStart - start) / 86400000);
+      if (dayOffset < 0 || dayOffset >= totalDays) return;
+      const weekIndex = Math.floor((startDay + dayOffset) / 7);
+      const span = document.createElement("span");
+      span.className = "heatmap-month";
+      span.textContent = label;
+      span.style.gridColumn = String(weekIndex + 1);
+      xLabels.appendChild(span);
+    });
+
+    const totalDistance = Array.from({ length: totalDays }, (_, index) => {
+      const day = new Date(Date.UTC(year, 0, 1 + index));
+      return totals.get(formatDayKey(day)) || 0;
+    }).reduce((sum, value) => sum + value, 0);
+    const totalKm = totalDistance / 1000;
+    const avgKm = totalDays ? totalKm / totalDays : 0;
+    yearSummary.textContent = `${totalKm.toFixed(1)}km (${avgKm.toFixed(1)}km/day avg)`;
 
     const tooltip = document.createElement("div");
     tooltip.className = "heatmap-tooltip";
@@ -935,8 +1052,11 @@ function renderHeatmaps(runs) {
       tooltip.hidden = true;
     });
 
+    gridWrap.appendChild(grid);
+    gridWrap.appendChild(xLabels);
+    gridOuter.appendChild(gridWrap);
     body.appendChild(yLabels);
-    body.appendChild(grid);
+    body.appendChild(gridOuter);
     yearBlock.appendChild(header);
     yearBlock.appendChild(body);
     yearBlock.appendChild(tooltip);
@@ -1033,6 +1153,24 @@ async function handleAuthRedirect() {
 function setupEventListeners() {
   elements.connectStrava.addEventListener("click", startAuthFlow);
   elements.logout.addEventListener("click", clearSession);
+  if (elements.clearSession) {
+    elements.clearSession.addEventListener("click", clearSession);
+  }
+  if (elements.menuToggle && elements.menuPanel) {
+    elements.menuToggle.addEventListener("click", () => {
+      const isHidden = elements.menuPanel.hidden;
+      elements.menuPanel.hidden = !isHidden;
+      elements.menuToggle.setAttribute("aria-expanded", String(isHidden));
+    });
+    document.addEventListener("click", (event) => {
+      if (elements.menuPanel.hidden) return;
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (elements.menuPanel.contains(target) || elements.menuToggle.contains(target)) return;
+      elements.menuPanel.hidden = true;
+      elements.menuToggle.setAttribute("aria-expanded", "false");
+    });
+  }
 }
 
 async function init() {
