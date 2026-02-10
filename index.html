@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<title>danlovesto.run</title>
+		<title>Running Dashboard</title>
 		<link rel="icon" href="docs/icon.png">
 		<link rel="stylesheet" href="styles.css">
 	</head>
@@ -12,19 +12,28 @@
 			<header class="hero">
 				<img class="logo" src="docs/icon.png" alt="danlovesto.run logo">
 				<div>
-					<h1>danlovesto.run</h1>
-					<p class="subtitle">Personal Strava dashboard running entirely in your browser.</p>
+					<h1>Running Dashboard</h1>
+				</div>
+				<div class="hero-actions">
+					<button id="menuToggle" class="icon-button" type="button" aria-expanded="false" aria-label="Open menu">
+						<span class="icon-line"></span>
+						<span class="icon-line"></span>
+						<span class="icon-line"></span>
+					</button>
+					<div id="menuPanel" class="menu-panel" hidden>
+						<button id="logout" class="menu-item" type="button">Log out</button>
+						<button id="clearSession" class="menu-item" type="button">Clear session</button>
+					</div>
 				</div>
 			</header>
 
-			<section class="card">
+			<section class="card" id="authCard">
 				<h2>Log in with Strava</h2>
 				<p class="note">
 					Click below to authorize with Strava. This app never asks you for client credentials.
 				</p>
 				<div class="actions">
 					<button id="connectStrava" class="primary">Log in with Strava</button>
-					<button id="logout" class="ghost">Clear session</button>
 				</div>
 			</section>
 
@@ -35,10 +44,6 @@
 
 			<section class="card" id="dashboard" hidden>
 				<h2>Your dashboard</h2>
-				<div class="stats">
-					<h3>Stats</h3>
-					<div id="statsGrid" class="stats-grid"></div>
-				</div>
 				<div class="dashboard-grid">
 					<div class="stat">
 						<span class="stat-label">Athlete</span>
@@ -61,23 +66,43 @@
 					<h3>Recent runs</h3>
 					<ul id="recentRuns" class="activity-list"></ul>
 				</div>
-				<div class="recent">
-					<h3>Personal records</h3>
+				<div class="stats">
+					<h3>Stats</h3>
+					<div id="statsGrid" class="stats-grid"></div>
+				</div>
+				<div class="recent notable">
+					<div class="notable-header">
+						<h3>Notable runs</h3>
+						<p class="note">Fastest times across standard running distances.</p>
+					</div>
+					<div class="notable-tabs">
+						<button class="tab-btn" type="button">Longest runs</button>
+						<button class="tab-btn is-active" type="button">Personal bests</button>
+						<button class="tab-btn" type="button">Biggest elevation gain</button>
+						<button class="tab-btn" type="button">Races</button>
+						<button class="tab-btn" type="button">Bus run bus</button>
+						<button class="tab-btn" type="button">Weekly half marathon</button>
+					</div>
 					<div class="pr-section">
 						<div class="pr-table">
 							<div class="pr-table-header">
-								<span>Best effort</span>
+								<span>Distance</span>
 								<span>Date</span>
 								<span>Time</span>
 							</div>
 							<div id="prTableBody" class="pr-table-body"></div>
 						</div>
 						<div class="pr-map-panel">
-							<div class="pr-panel-title">Map</div>
+							<div class="pr-panel-title">Route map</div>
 							<div id="prMapContent" class="pr-panel-content">Select a record to view the map.</div>
+							<div class="pr-mini-chart">
+								<svg class="mini-chart" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">
+									<polyline points="0,18 10,14 20,22 30,12 40,16 50,10 60,18 70,8 80,14 90,6 100,10" />
+								</svg>
+							</div>
 						</div>
 						<div class="pr-details-panel">
-							<div class="pr-panel-title">Activity details</div>
+							<div class="pr-panel-title">Run details</div>
 							<div id="prDetailsContent" class="pr-panel-content">
 								Select a record to view activity details.
 							</div>
@@ -99,7 +124,7 @@
 
 		<footer class="footer">
 			<p>
-				Built to keep all Strava interactions in your browser, with a minimal token exchange service.
+				Powered by Strava. All rights reserved to Strava and their respective owners.
 			</p>
 		</footer>
 
