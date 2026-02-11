@@ -148,11 +148,13 @@ function setAuthState(isAuthenticated) {
   if (elements.authCard) {
     elements.authCard.hidden = isAuthenticated;
   }
-  if (elements.statusCard) {
-    elements.statusCard.hidden = !isAuthenticated;
+  if (elements.statusCard && !isAuthenticated) {
+    elements.statusCard.hidden = true;
   }
   if (!isAuthenticated) {
     hideStatusProgress();
+  } else {
+    setStatus(elements.status.textContent || "");
   }
   if (elements.menuToggle) {
     elements.menuToggle.hidden = !isAuthenticated;
