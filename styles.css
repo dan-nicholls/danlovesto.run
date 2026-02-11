@@ -145,6 +145,7 @@ body {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  justify-content: center;
   margin-top: 16px;
 }
 
@@ -163,6 +164,18 @@ button.primary {
   color: #fff;
 }
 
+button.strava-connect {
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+button.strava-connect img {
+  display: block;
+  height: 48px;
+  width: auto;
+}
+
 button.ghost {
   background: transparent;
   border: 1px solid #d6d6e5;
@@ -171,6 +184,77 @@ button.ghost {
 .note {
   color: #5b5b6f;
   margin-top: 8px;
+}
+
+.status-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.status-row p {
+  margin: 0;
+}
+
+.status-countdown {
+  font-variant-numeric: tabular-nums;
+  color: #5b5b6f;
+  white-space: nowrap;
+}
+
+.status-progress {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.progress-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #ececf6;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0;
+  background: #ff5a5f;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.progress-track.is-indeterminate .progress-bar {
+  width: 40%;
+  animation: progress-sweep 1.2s ease-in-out infinite;
+}
+
+.progress-track.is-rate-limit .progress-bar {
+  background: #f59f0b;
+}
+
+.status-progress-label {
+  margin: 0;
+  color: #5b5b6f;
+  font-size: 13px;
+  text-align: center;
+}
+
+@keyframes progress-sweep {
+  0% {
+    transform: translateX(-80%);
+  }
+  100% {
+    transform: translateX(180%);
+  }
+}
+
+.strava-link {
+  color: #fc5200;
+  font-weight: 600;
+  text-decoration: underline;
+  display: inline-block;
+  margin-top: 6px;
 }
 
 .dashboard-grid {
@@ -718,4 +802,13 @@ button.ghost {
   padding: 20px;
   text-align: center;
   color: #7a7a8f;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.strava-powered {
+  max-width: 120px;
+  height: auto;
 }
