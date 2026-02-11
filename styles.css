@@ -186,6 +186,7 @@ button.ghost {
   margin-top: 8px;
 }
 
+
 .status-row {
   display: flex;
   align-items: baseline;
@@ -448,6 +449,7 @@ button.ghost {
 .heatmap-summary {
   font-size: 12px;
   color: #7a7a8f;
+  font-weight: 400;
 }
 
 .heatmap-grid-wrap {
