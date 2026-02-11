@@ -41,6 +41,7 @@ const elements = {
   totalRuns: document.getElementById("totalRuns"),
   totalDistance: document.getElementById("totalDistance"),
   totalTime: document.getElementById("totalTime"),
+  statsGrid: document.getElementById("statsGrid"),
   prTableBody: document.getElementById("prTableBody"),
   prMapContent: document.getElementById("prMapContent"),
   prDetailsContent: document.getElementById("prDetailsContent"),
@@ -414,7 +415,20 @@ function formatSeconds(seconds) {
   return `${minutes}m`;
 }
 
-function renderBarChart(values, labels) {
+function renderAxisLabels(labels = []) {
+  if (!labels.length) return "";
+  const maxLabels = 7;
+  const step = labels.length > maxLabels ? Math.ceil(labels.length / maxLabels) : 1;
+  const axis = labels
+    .map((label, index) => {
+      if (index % step !== 0) return "<span></span>";
+      return `<span>${label}</span>`;
+    })
+    .join("");
+  return `<div class="stats-chart-axis">${axis}</div>`;
+}
+
+function renderBarChart(values, labels, { showLabels = true } = {}) {
   if (!values.length) return "";
   const maxValue = Math.max(...values, 1);
   const barCount = values.length;
@@ -425,16 +439,271 @@ function renderBarChart(values, labels) {
       const height = (value / maxValue) * 100;
       const x = index * (barWidth + gap);
       const label = labels?.[index] ?? "";
-      return `<rect x="${x}" y="${100 - height}" width="${barWidth}" height="${height}" rx="2">
-        <title>${label}: ${value.toFixed(1)}</title>
-      </rect>`;
+      const title = `${label}: ${value.toFixed(1)}`;
+      return `
+        <rect class="stats-bar-hit" x="${x}" y="0" width="${barWidth}" height="100">
+          <title>${title}</title>
+        </rect>
+        <rect class="stats-bar" x="${x}" y="${100 - height}" width="${barWidth}" height="${height}" rx="2" />
+      `;
     })
     .join("");
 
   return `
-    <svg class="stats-chart" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-      ${bars}
-    </svg>
+    <div class="stats-chart-wrap">
+      <svg class="stats-chart" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        ${bars}
+      </svg>
+      ${showLabels ? renderAxisLabels(labels) : ""}
+    </div>
+  `;
+}
+
+function renderLineChart(points, { minLabel, maxLabel } = {}) {
+  if (points.length < 2) return "";
+  const maxY = Math.max(...points.map((p) => p.y), 1);
+  const path = points
+    .map((point, index) => {
+      const x = (index / (points.length - 1)) * 100;
+      const y = 100 - (point.y / maxY) * 100;
+      return `${index === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
+  return `
+    <div class="stats-chart-wrap">
+      <svg class="stats-chart" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <path class="stats-line" d="${path}" />
+      </svg>
+      <div class="stats-chart-axis">
+        <span>${minLabel || ""}</span>
+        <span>${maxLabel || ""}</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderDonutChart(values, labels) {
+  const total = values.reduce((sum, value) => sum + value, 0) || 1;
+  const radius = 18;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+  const palette = ["#8fb8ff", "#ff8b8b", "#f5c56b"];
+  const arcs = values
+    .map((value, index) => {
+      const fraction = value / total;
+      const length = fraction * circumference;
+      const dash = `${length} ${circumference - length}`;
+      const stroke = palette[index % palette.length];
+      const label = labels[index] || "";
+      const arc = `
+        <circle
+          class="stats-donut-arc"
+          cx="24"
+          cy="24"
+          r="${radius}"
+          stroke="${stroke}"
+          stroke-dasharray="${dash}"
+          stroke-dashoffset="${-offset}"
+          data-label="${label}"
+          data-value="${value}"
+        />
+      `;
+      offset += length;
+      return arc;
+    })
+    .join("");
+
+  const legend = labels
+    .map((label, index) => {
+      return `
+        <div class="stats-legend-item">
+          <span class="stats-legend-dot" style="background:${palette[index % palette.length]}"></span>
+          <span>${label}</span>
+          <span class="stats-legend-value">${values[index] ?? 0}</span>
+        </div>
+      `;
+    })
+    .join("");
+
+  return `
+    <div class="stats-donut-wrap">
+      <div class="stats-donut-shell">
+        <svg class="stats-donut" viewBox="0 0 48 48" aria-hidden="true">
+          <circle class="stats-donut-base" cx="24" cy="24" r="${radius}" />
+          ${arcs}
+        </svg>
+        <div class="stats-donut-tooltip" hidden></div>
+      </div>
+      <div class="stats-legend">${legend}</div>
+    </div>
+  `;
+}
+
+function renderRadialTimeChart(values) {
+  if (!values.length) return "";
+  const smoothedValues = values.map((value, index) => {
+    const prev = values[(index - 1 + values.length) % values.length] || 0;
+    const next = values[(index + 1) % values.length] || 0;
+    return (prev + value + next) / 3;
+  });
+  const maxValue = Math.max(...smoothedValues, 1);
+  const total = values.reduce((sum, value) => sum + value, 0) || 1;
+  const center = 50;
+  const radius = 34;
+  const levels = 4;
+  const angleStep = (Math.PI * 2) / values.length;
+
+  const grid = Array.from({ length: levels }, (_, level) => {
+    const r = radius * ((level + 1) / levels);
+    return `<circle class=\"stats-radial-grid\" cx=\"${center}\" cy=\"${center}\" r=\"${r.toFixed(2)}\" />`;
+  }).join("");
+
+  const gridLabels = Array.from({ length: levels }, (_, level) => {
+    const r = radius * ((level + 1) / levels);
+    const value = (maxValue * (level + 1)) / levels;
+    const percent = Math.round((value / total) * 100);
+    return `<text class=\"stats-radial-scale\" x=\"${center}\" y=\"${(center - r - 1).toFixed(2)}\">${percent}%</text>`;
+  }).join("");
+
+  const axisLabels = [
+    { label: "12am", index: 0 },
+    { label: "3am", index: 3 },
+    { label: "6am", index: 6 },
+    { label: "9am", index: 9 },
+    { label: "12pm", index: 12 },
+    { label: "3pm", index: 15 },
+    { label: "6pm", index: 18 },
+    { label: "9pm", index: 21 },
+  ];
+
+  const labelRadius = radius + 8;
+  const labelNodes = axisLabels
+    .map(({ label, index }) => {
+      const angle = -Math.PI / 2 + index * angleStep;
+      const x = center + labelRadius * Math.cos(angle);
+      const y = center + labelRadius * Math.sin(angle);
+      const anchor = Math.abs(Math.cos(angle)) < 0.2 ? "middle" : Math.cos(angle) > 0 ? "start" : "end";
+      const dy = Math.sin(angle) > 0.4 ? "0.9em" : Math.sin(angle) < -0.4 ? "-0.2em" : "0.35em";
+      return `<text class=\"stats-radial-label\" x=\"${x.toFixed(2)}\" y=\"${y.toFixed(2)}\" text-anchor=\"${anchor}\" dy=\"${dy}\">${label}</text>`;
+    })
+    .join("");
+
+  const areaPoints = smoothedValues
+    .map((value, index) => {
+      const angle = -Math.PI / 2 + index * angleStep;
+      const r = (value / maxValue) * radius;
+      const x = center + r * Math.cos(angle);
+      const y = center + r * Math.sin(angle);
+      return { x, y };
+    });
+
+  const areaPath = buildSmoothClosedPath(areaPoints, 0.7);
+
+  return `
+    <div class="stats-chart-wrap stats-chart-wrap--radial">
+      <svg class="stats-chart stats-chart--radial" viewBox="0 0 100 100" aria-hidden="true">
+        ${grid}
+        ${gridLabels}
+        <path class="stats-radial-area" d="${areaPath} Z" />
+        ${labelNodes}
+      </svg>
+    </div>
+  `;
+}
+
+function buildSmoothClosedPath(points, tension = 0.6) {
+  if (points.length < 2) return "";
+  const count = points.length;
+  const path = [];
+  for (let i = 0; i < count; i += 1) {
+    const p0 = points[(i - 1 + count) % count];
+    const p1 = points[i];
+    const p2 = points[(i + 1) % count];
+    const p3 = points[(i + 2) % count];
+    const cp1x = p1.x + ((p2.x - p0.x) * tension) / 6;
+    const cp1y = p1.y + ((p2.y - p0.y) * tension) / 6;
+    const cp2x = p2.x - ((p3.x - p1.x) * tension) / 6;
+    const cp2y = p2.y - ((p3.y - p1.y) * tension) / 6;
+    if (i === 0) {
+      path.push(`M${p1.x.toFixed(2)},${p1.y.toFixed(2)}`);
+    }
+    path.push(
+      `C${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)}`,
+    );
+  }
+  return path.join(" ");
+}
+
+function renderRadarChart(values, labels) {
+  if (!values.length) return "";
+  const maxValue = Math.max(...values, 1);
+  const count = values.length;
+  const center = 50;
+  const radius = 38;
+  const levels = 4;
+  const angleStep = (Math.PI * 2) / count;
+
+  const grid = Array.from({ length: levels }, (_, level) => {
+    const r = radius * ((level + 1) / levels);
+    const points = values
+      .map((_, index) => {
+        const angle = -Math.PI / 2 + index * angleStep;
+        const x = center + r * Math.cos(angle);
+        const y = center + r * Math.sin(angle);
+        return `${x.toFixed(2)},${y.toFixed(2)}`;
+      })
+      .join(" ");
+    return `<polygon class=\"stats-radar-grid\" points=\"${points}\" />`;
+  }).join("");
+
+  const scaleLabels = Array.from({ length: levels }, (_, level) => {
+    const r = radius * ((level + 1) / levels);
+    const value = (maxValue * (level + 1)) / levels;
+    return `<text class=\"stats-radar-scale\" x=\"${center}\" y=\"${(center - r + 2).toFixed(2)}\">${value.toFixed(1)} km</text>`;
+  }).join("");
+
+  const axes = values
+    .map((_, index) => {
+      const angle = -Math.PI / 2 + index * angleStep;
+      const x = center + radius * Math.cos(angle);
+      const y = center + radius * Math.sin(angle);
+      return `<line class=\"stats-radar-axis\" x1=\"${center}\" y1=\"${center}\" x2=\"${x.toFixed(2)}\" y2=\"${y.toFixed(2)}\" />`;
+    })
+    .join("");
+
+  const shapePoints = values
+    .map((value, index) => {
+      const angle = -Math.PI / 2 + index * angleStep;
+      const r = (value / maxValue) * radius;
+      const x = center + r * Math.cos(angle);
+      const y = center + r * Math.sin(angle);
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
+
+  const labelRadius = radius + 8;
+  const labelNodes = labels
+    .map((label, index) => {
+      const angle = -Math.PI / 2 + index * angleStep;
+      const x = center + labelRadius * Math.cos(angle);
+      const y = center + labelRadius * Math.sin(angle);
+      const anchor = Math.abs(Math.cos(angle)) < 0.2 ? "middle" : Math.cos(angle) > 0 ? "start" : "end";
+      const dy = Math.sin(angle) > 0.4 ? "0.9em" : Math.sin(angle) < -0.4 ? "-0.2em" : "0.35em";
+      return `<text class=\"stats-radar-label\" x=\"${x.toFixed(2)}\" y=\"${y.toFixed(2)}\" text-anchor=\"${anchor}\" dy=\"${dy}\">${label}</text>`;
+    })
+    .join("");
+
+  return `
+    <div class="stats-chart-wrap stats-chart-wrap--radar">
+      <svg class="stats-chart stats-chart--radar" viewBox="0 0 100 100" aria-hidden="true" data-values='${JSON.stringify(values)}' data-labels='${JSON.stringify(labels)}'>
+        ${grid}
+        ${axes}
+        ${scaleLabels}
+        <polygon class="stats-radar-shape" points="${shapePoints}" />
+        ${labelNodes}
+      </svg>
+      <div class="stats-radar-tooltip" hidden></div>
+    </div>
   `;
 }
 
@@ -509,8 +778,7 @@ function renderStats(runs) {
   const distanceBins = [1, 3, 5, 6, 8, 10];
   const distanceBinCounts = Array.from({ length: distanceBins.length + 1 }, () => 0);
 
-  const paceBins = [4, 5, 6, 7, 8];
-  const paceBinCounts = Array.from({ length: paceBins.length + 1 }, () => 0);
+  const paceValues = [];
 
   const detailsCache = getCachedDetailsMap();
   const detailsMap = detailsCache.map;
@@ -522,6 +790,14 @@ function renderStats(runs) {
 
   const timeOfDayCounts = { morning: 0, afternoon: 0, evening: 0, night: 0 };
   const elevationByYear = new Map();
+
+  const getLocalHour = (run) => {
+    const local = run.start_date_local || run.start_date;
+    const match = typeof local === "string" ? local.match(/T(\d{2}):/) : null;
+    if (match) return Number(match[1]);
+    const date = new Date(local);
+    return date.getHours();
+  };
 
   runs.forEach((run) => {
     const date = new Date(run.start_date_local);
@@ -537,10 +813,10 @@ function renderStats(runs) {
 
     distanceBinCounts[bucketize(distanceKm, distanceBins)] += 1;
     if (pace > 0) {
-      paceBinCounts[bucketize(pace, paceBins)] += 1;
+      paceValues.push(pace);
     }
 
-    const hour = date.getHours();
+    const hour = getLocalHour(run);
     if (hour >= 5 && hour < 12) timeOfDayCounts.morning += 1;
     else if (hour >= 12 && hour < 17) timeOfDayCounts.afternoon += 1;
     else if (hour >= 17 && hour < 21) timeOfDayCounts.evening += 1;
@@ -585,29 +861,56 @@ function renderStats(runs) {
   const distanceBinLabels = ["0-1", "1-3", "3-5", "5-6", "6-8", "8-10", "10+"].map(
     (label) => `${label} km`,
   );
-  const paceBinLabels = ["<4", "4-5", "5-6", "6-7", "7-8", "8+"].map(
-    (label) => `${label} min/km`,
-  );
+  const paceMin = paceValues.length ? Math.min(...paceValues) : 0;
+  const paceMax = paceValues.length ? Math.max(...paceValues) : 0;
+  const paceSamples = 30;
+  const paceRange = paceMax - paceMin || 1;
+  const paceStep = paceRange / (paceSamples - 1);
+  const bandwidth = Math.max(0.25, paceRange / 12);
+  const paceDistribution = Array.from({ length: paceSamples }, (_, index) => {
+    const x = paceMin + paceStep * index;
+    const y = paceValues.reduce((sum, value) => {
+      const z = (value - x) / bandwidth;
+      return sum + Math.exp(-0.5 * z * z);
+    }, 0);
+    return { x, y };
+  });
   const tempBinLabels = ["<0", "0-5", "5-10", "10-15", "15-20", "20-25", "25+"].map(
     (label) => `${label}°C`,
   );
 
-  const friendLabels = ["With friends", "Solo", "Unknown"];
-  const friendValues = [friendCounts.with, friendCounts.solo, friendCounts.unknown];
+  const filterUnknown = (labels, values) => {
+    return labels.reduce(
+      (acc, label, index) => {
+        if (label === "Unknown" && (values[index] ?? 0) === 0) return acc;
+        acc.labels.push(label);
+        acc.values.push(values[index]);
+        return acc;
+      },
+      { labels: [], values: [] },
+    );
+  };
 
-  const weatherLabels = ["Sun", "Cloud", "Rain", "Unknown"];
-  const weatherValues = [weatherCounts.sun, weatherCounts.cloud, weatherCounts.rain, weatherCounts.unknown];
+  const friendData = filterUnknown(
+    ["With friends", "Solo", "Unknown"],
+    [friendCounts.with, friendCounts.solo, friendCounts.unknown],
+  );
 
-  const tempValues = [...tempBinCounts, tempUnknown];
-  const tempLabels = [...tempBinLabels, "Unknown"];
+  const weatherData = filterUnknown(
+    ["Sun", "Cloud", "Rain", "Unknown"],
+    [weatherCounts.sun, weatherCounts.cloud, weatherCounts.rain, weatherCounts.unknown],
+  );
 
-  const timeLabels = ["Morning", "Afternoon", "Evening", "Night"];
-  const timeValues = [
-    timeOfDayCounts.morning,
-    timeOfDayCounts.afternoon,
-    timeOfDayCounts.evening,
-    timeOfDayCounts.night,
-  ];
+  const tempData = filterUnknown(
+    [...tempBinLabels, "Unknown"],
+    [...tempBinCounts, tempUnknown],
+  );
+
+  const hourCounts = Array.from({ length: 24 }, () => 0);
+  runs.forEach((run) => {
+    const hour = getLocalHour(run);
+    hourCounts[hour] += 1;
+  });
 
   const elevValues = years.map((year) => (elevationByYear.get(year) || 0) / 1000);
   const stats = [
@@ -619,7 +922,7 @@ function renderStats(runs) {
     {
       title: "Avg km per day",
       value: `${(totalDistance / 1000 / runs.length).toFixed(1)} km`,
-      chart: renderBarChart(avgKmByWeekday, weekdayLabels),
+      chart: renderRadarChart(avgKmByWeekday, weekdayLabels),
     },
     {
       title: "Run distance bins",
@@ -629,27 +932,30 @@ function renderStats(runs) {
     {
       title: "Pace distribution",
       value: avgPace ? `${avgPace.toFixed(1)} min/km` : "—",
-      chart: renderBarChart(paceBinCounts, paceBinLabels),
+      chart: renderLineChart(paceDistribution, {
+        minLabel: `${paceMin.toFixed(1)} min/km`,
+        maxLabel: `${paceMax.toFixed(1)} min/km`,
+      }),
     },
     {
       title: "Runs with friends",
       value: `${friendCounts.with} group`,
-      chart: renderBarChart(friendValues, friendLabels),
+      chart: renderDonutChart(friendData.values, friendData.labels),
     },
     {
       title: "Temp vs runs",
       value: tempUnknown ? "Partial" : "All runs",
-      chart: renderBarChart(tempValues, tempLabels),
+      chart: renderBarChart(tempData.values, tempData.labels),
     },
     {
       title: "Weather vs runs",
       value: weatherCounts.unknown ? "Partial" : "All runs",
-      chart: renderBarChart(weatherValues, weatherLabels),
+      chart: renderBarChart(weatherData.values, weatherData.labels),
     },
     {
       title: "Runs by time of day",
       value: `${runs.length} runs`,
-      chart: renderBarChart(timeValues, timeLabels),
+      chart: renderRadialTimeChart(hourCounts),
     },
     {
       title: "Elevation per year",
@@ -662,13 +968,107 @@ function renderStats(runs) {
     .map((stat) => `
       <div class="stats-card">
         <div class="stats-card-header">
-          <span>${stat.title}</span>
-          <span class="stats-subtitle">${stat.value}</span>
+          <div class="stats-title">${stat.title}</div>
+          <div class="stats-subtitle">${stat.value}</div>
         </div>
         ${stat.chart || ""}
       </div>
     `)
     .join("");
+
+  setupRadarTooltips();
+  setupDonutTooltips();
+}
+
+function setupRadarTooltips() {
+  document.querySelectorAll(".stats-chart-wrap--radar").forEach((wrap) => {
+    const svg = wrap.querySelector(".stats-chart--radar");
+    const tooltip = wrap.querySelector(".stats-radar-tooltip");
+    if (!svg || !tooltip) return;
+
+    const values = JSON.parse(svg.getAttribute("data-values") || "[]");
+    const labels = JSON.parse(svg.getAttribute("data-labels") || "[]");
+    if (!values.length) return;
+
+    const center = 50;
+    const radius = 38;
+    const angleStep = (Math.PI * 2) / values.length;
+    const points = values.map((value, index) => {
+      const angle = -Math.PI / 2 + index * angleStep;
+      const r = (value / Math.max(...values, 1)) * radius;
+      return {
+        x: center + r * Math.cos(angle),
+        y: center + r * Math.sin(angle),
+        label: labels[index] || "",
+        value,
+      };
+    });
+
+    const handleMove = (event) => {
+      const rect = svg.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 100;
+      const y = ((event.clientY - rect.top) / rect.height) * 100;
+      let closest = null;
+      let bestDistance = Infinity;
+      points.forEach((point) => {
+        const dx = point.x - x;
+        const dy = point.y - y;
+        const distance = dx * dx + dy * dy;
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          closest = point;
+        }
+      });
+      if (!closest) return;
+
+      tooltip.hidden = false;
+      tooltip.textContent = `${closest.label}: ${closest.value.toFixed(1)} km`;
+      const wrapRect = wrap.getBoundingClientRect();
+      const left = ((closest.x / 100) * wrapRect.width);
+      const top = ((closest.y / 100) * wrapRect.height);
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${top}px`;
+    };
+
+    const hide = () => {
+      tooltip.hidden = true;
+    };
+
+    svg.addEventListener("mousemove", handleMove);
+    svg.addEventListener("mouseleave", hide);
+  });
+}
+
+function setupDonutTooltips() {
+  document.querySelectorAll(".stats-donut-shell").forEach((shell) => {
+    const tooltip = shell.querySelector(".stats-donut-tooltip");
+    const arcs = shell.querySelectorAll(".stats-donut-arc");
+    if (!tooltip || !arcs.length) return;
+
+    const show = (event) => {
+      const target = event.currentTarget;
+      if (!(target instanceof SVGElement)) return;
+      const label = target.getAttribute("data-label") || "";
+      const value = target.getAttribute("data-value") || "0";
+      tooltip.textContent = `${label}: ${value}`;
+      tooltip.hidden = false;
+
+      const rect = shell.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      tooltip.style.left = `${x}px`;
+      tooltip.style.top = `${y}px`;
+    };
+
+    const hide = () => {
+      tooltip.hidden = true;
+    };
+
+    arcs.forEach((arc) => {
+      arc.addEventListener("mousemove", show);
+      arc.addEventListener("mouseleave", hide);
+    });
+  });
 }
 
 
