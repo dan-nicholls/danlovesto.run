@@ -660,9 +660,17 @@ function renderRecentRuns(activities) {
     const date = new Date(activity.start_date).toLocaleDateString();
     item.innerHTML = `
       <div>
-        <strong>${activity.name}</strong>
+        <div class="activity-title">
+          <strong>${activity.name}</strong>
+          <a class="strava-link" href="https://www.strava.com/activities/${activity.id}" target="_blank" rel="noopener noreferrer" aria-label="Open activity on Strava">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M14 5h5v5" />
+              <path d="M10 14L19 5" />
+              <path d="M19 14v5h-9a2 2 0 0 1-2-2v-9" />
+            </svg>
+          </a>
+        </div>
         <span class="meta">${date}</span>
-        <a class="strava-link" href="https://www.strava.com/activities/${activity.id}" target="_blank" rel="noopener noreferrer">View on Strava</a>
       </div>
       <div>
         <span>${formatDistance(activity.distance)}</span>
@@ -689,9 +697,17 @@ function renderAllActivities(activities) {
     const prLabel = isPr ? "<span class=\"badge\">PR</span>" : "";
     item.innerHTML = `
       <div>
-        <strong>${activity.name}</strong>
+        <div class="activity-title">
+          <strong>${activity.name}</strong>
+          <a class="strava-link" href="https://www.strava.com/activities/${activity.id}" target="_blank" rel="noopener noreferrer" aria-label="Open activity on Strava">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M14 5h5v5" />
+              <path d="M10 14L19 5" />
+              <path d="M19 14v5h-9a2 2 0 0 1-2-2v-9" />
+            </svg>
+          </a>
+        </div>
         <span class="meta">${date}</span>
-        <a class="strava-link" href="https://www.strava.com/activities/${activity.id}" target="_blank" rel="noopener noreferrer">View on Strava</a>
       </div>
       <div class="activity-meta">
         ${prLabel}
