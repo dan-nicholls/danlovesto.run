@@ -86,36 +86,27 @@
 						<h3>Notable runs</h3>
 						<p class="note">Fastest times across standard running distances.</p>
 					</div>
-					<div class="notable-tabs">
-						<button class="tab-btn" type="button">Longest runs</button>
-						<button class="tab-btn is-active" type="button">Personal bests</button>
-						<button class="tab-btn" type="button">Biggest elevation gain</button>
-						<button class="tab-btn" type="button">Races</button>
-						<button class="tab-btn" type="button">Bus run bus</button>
-						<button class="tab-btn" type="button">Weekly half marathon</button>
+				<div class="notable-tabs">
+					<button class="tab-btn is-active" type="button" data-tab="prs">Personal bests</button>
+					<button class="tab-btn" type="button" data-tab="recent">Recent runs</button>
+				</div>
+				<div class="pr-section">
+					<div class="pr-table">
+						<div class="pr-table-header">
+							<span id="prTableCol1">Distance</span>
+							<span id="prTableCol2">Date</span>
+							<span id="prTableCol3">Time</span>
+						</div>
+						<div id="prTableBody" class="pr-table-body"></div>
 					</div>
-					<div class="pr-section">
-						<div class="pr-table">
-							<div class="pr-table-header">
-								<span>Distance</span>
-								<span>Date</span>
-								<span>Time</span>
-							</div>
-							<div id="prTableBody" class="pr-table-body"></div>
-						</div>
-						<div class="pr-map-panel">
-							<div class="pr-panel-title">Route map</div>
-							<div id="prMapContent" class="pr-panel-content">Select a record to view the map.</div>
-							<div class="pr-mini-chart">
-								<svg class="mini-chart" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">
-									<polyline points="0,18 10,14 20,22 30,12 40,16 50,10 60,18 70,8 80,14 90,6 100,10" />
-								</svg>
-							</div>
-						</div>
-						<div class="pr-details-panel">
-							<div class="pr-panel-title">Run details</div>
-							<div id="prDetailsContent" class="pr-panel-content">
-								Select a record to view activity details.
+					<div class="pr-map-panel">
+						<div class="pr-panel-title" id="prMapTitle">Route map</div>
+						<div id="prMapContent" class="pr-panel-content">Select a record to view the map.</div>
+					</div>
+					<div class="pr-details-panel">
+						<div class="pr-panel-title" id="prDetailsTitle">Run details</div>
+						<div id="prDetailsContent" class="pr-panel-content">
+							Select a record to view activity details.
 							</div>
 						</div>
 					</div>
