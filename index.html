@@ -28,18 +28,29 @@
 			</header>
 
 			<section class="card" id="authCard">
-				<h2>Log in with Strava</h2>
+				<h2>Connect with Strava</h2>
 				<p class="note">
-					Click below to authorize with Strava. This app never asks you for client credentials.
+					Authorize to load your activities and dashboard. This app never asks you for client credentials.
 				</p>
 				<div class="actions">
-					<button id="connectStrava" class="primary">Log in with Strava</button>
+					<button id="connectStrava" class="strava-connect" type="button">
+						<img src="assets/connect-with-strava.svg" alt="Connect with Strava" height="48" />
+					</button>
 				</div>
 			</section>
 
 			<section class="card" id="statusCard">
 				<h2>Status</h2>
-				<p id="status">Waiting for configuration.</p>
+				<div class="status-row">
+					<p id="status">Waiting for configuration.</p>
+					<span class="status-countdown" id="statusCountdown"></span>
+				</div>
+				<div class="status-progress" id="statusProgress" hidden>
+					<div class="progress-track" id="statusProgressTrack">
+						<div class="progress-bar" id="statusProgressBar"></div>
+					</div>
+					<p class="status-progress-label" id="statusProgressLabel"></p>
+				</div>
 			</section>
 
 			<section class="card" id="dashboard" hidden>
@@ -123,9 +134,8 @@
 		</main>
 
 		<footer class="footer">
-			<p>
-				Powered by Strava. All rights reserved to Strava and their respective owners.
-			</p>
+			<p>Powered by Strava. All rights reserved to Strava and their respective owners.</p>
+			<img class="strava-powered" src="assets/powered-by-strava-stacked.svg" alt="Powered by Strava" />
 		</footer>
 
 		<script src="app.js" type="module"></script>
