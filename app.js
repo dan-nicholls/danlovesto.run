@@ -320,6 +320,38 @@ function renderBarChart(values, labels) {
   `;
 }
 
+async function mapWithConcurrency(items, limit, mapper) {
+  if (!items.length) return [];
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  let inFlight = 0;
+
+  return new Promise((resolve, reject) => {
+    const launch = () => {
+      while (inFlight < limit && nextIndex < items.length) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+        inFlight += 1;
+        Promise.resolve(mapper(items[currentIndex], currentIndex))
+          .then((result) => {
+            results[currentIndex] = result;
+            inFlight -= 1;
+            if (nextIndex >= items.length && inFlight === 0) {
+              resolve(results);
+              return;
+            }
+            launch();
+          })
+          .catch((error) => {
+            reject(error);
+          });
+      }
+    };
+
+    launch();
+  });
+}
+
 function countWeekdays(startDate, endDate) {
   const counts = Array.from({ length: 7 }, () => 0);
   if (!startDate || !endDate) return counts;
@@ -806,19 +838,28 @@ async function fetchPRsFromRuns(runs) {
   const cachedDetails = getCachedDetailsMap();
   const detailsMap = cachedDetails.map;
 
+  const DETAILS_CONCURRENCY = 4;
   const prMap = new Map();
   let processed = 0;
 
   try {
+    const runsNeedingDetails = runs.filter((run) => !detailsMap[run.id]);
+    if (runsNeedingDetails.length) {
+      let fetched = 0;
+      setStatus(`Fetching activity details... ${fetched}/${runsNeedingDetails.length}`);
+      await mapWithConcurrency(runsNeedingDetails, DETAILS_CONCURRENCY, async (run) => {
+        const details = await fetchWithAuth(`/activities/${run.id}`);
+        detailsMap[run.id] = details;
+        fetched += 1;
+        setStatus(`Fetching activity details... ${fetched}/${runsNeedingDetails.length}`);
+        return details;
+      });
+    }
+
     for (const run of runs) {
       processed += 1;
       setStatus(`Calculating PRs... ${processed}/${runs.length}`);
-      await sleep(250);
-      let details = detailsMap[run.id];
-      if (!details) {
-        details = await fetchWithAuth(`/activities/${run.id}`);
-        detailsMap[run.id] = details;
-      }
+      const details = detailsMap[run.id];
       const bestEfforts = details.best_efforts || [];
 
       bestEfforts.forEach((effort) => {
