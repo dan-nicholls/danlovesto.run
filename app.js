@@ -1,6 +1,7 @@
 const config = {
   clientId: "",
   tokenExchangeUrl: "",
+  mapboxToken: "",
 };
 
 const storageKeys = {
@@ -29,6 +30,11 @@ const elements = {
   statusProgressLabel: document.getElementById("statusProgressLabel"),
   authCard: document.getElementById("authCard"),
   dashboard: document.getElementById("dashboard"),
+  prTableCol1: document.getElementById("prTableCol1"),
+  prTableCol2: document.getElementById("prTableCol2"),
+  prTableCol3: document.getElementById("prTableCol3"),
+  prMapTitle: document.getElementById("prMapTitle"),
+  prDetailsTitle: document.getElementById("prDetailsTitle"),
   menuToggle: document.getElementById("menuToggle"),
   menuPanel: document.getElementById("menuPanel"),
   athleteName: document.getElementById("athleteName"),
@@ -48,6 +54,10 @@ const state = {
   prActivityIds: new Set(),
   isAuthenticated: false,
   progressTimer: null,
+  prs: [],
+  recentRuns: [],
+  detailsMap: null,
+  activeNotableTab: "prs",
 };
 
 const STRAVA_API = "https://www.strava.com/api/v3";
@@ -173,6 +183,7 @@ async function loadConfig() {
     const data = await response.json();
     config.clientId = data.clientId || "";
     config.tokenExchangeUrl = data.tokenExchangeUrl || "";
+    config.mapboxToken = data.mapboxToken || "";
   } catch (error) {
     setStatus(`${error.message} Start the local server and try again.`);
   }
@@ -373,6 +384,17 @@ function formatDistance(meters) {
   if (!meters) return "0 km";
   const km = meters / 1000;
   return `${km.toFixed(1)} km`;
+}
+
+function formatDate(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function formatDuration(seconds) {
@@ -659,7 +681,7 @@ function renderRecentRuns(activities) {
 
   activities.forEach((activity) => {
     const item = document.createElement("li");
-    const date = new Date(activity.start_date).toLocaleDateString();
+    const date = formatDate(activity.start_date);
     item.innerHTML = `
       <div>
         <div class="activity-title">
@@ -683,6 +705,149 @@ function renderRecentRuns(activities) {
   });
 }
 
+function setNotableTab(tab) {
+  state.activeNotableTab = tab;
+  document.querySelectorAll(".notable-tabs .tab-btn").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.tab === tab);
+  });
+
+  if (elements.prTableCol1) {
+    elements.prTableCol1.textContent = tab === "recent" ? "Rank" : "Distance";
+  }
+  if (elements.prTableCol2) {
+    elements.prTableCol2.textContent = "Date";
+  }
+  if (elements.prTableCol3) {
+    elements.prTableCol3.textContent = tab === "recent" ? "Distance" : "Time";
+  }
+  if (elements.prMapTitle) {
+    elements.prMapTitle.textContent = tab === "recent" ? "Route map & heart rate" : "Route map";
+  }
+  if (elements.prDetailsTitle) {
+    elements.prDetailsTitle.textContent = tab === "recent" ? "Activity details" : "Run details";
+  }
+
+  if (tab === "recent") {
+    renderRecentRunsTable(state.recentRuns);
+  } else {
+    renderPRs(state.prs);
+  }
+}
+
+async function getActivityDetails(activityId) {
+  if (!state.detailsMap) {
+    state.detailsMap = getCachedDetailsMap().map;
+  }
+  if (state.detailsMap[activityId]) return state.detailsMap[activityId];
+  const details = await fetchWithAuth(`/activities/${activityId}`);
+  state.detailsMap[activityId] = details;
+  setCachedDetailsMap(state.detailsMap);
+  return details;
+}
+
+async function renderRecentRunSelection(activity) {
+  elements.prMapContent.textContent = "Loading route map...";
+  elements.prDetailsContent.textContent = "Loading activity details...";
+
+  const details = await getActivityDetails(activity.id);
+  const heartRate = details.average_heartrate
+    ? `${Math.round(details.average_heartrate)} bpm`
+    : "—";
+  const elevation = details.total_elevation_gain
+    ? `${Math.round(details.total_elevation_gain)} m`
+    : "—";
+
+  elements.prMapContent.innerHTML = renderMapboxStaticMap(details.map?.summary_polyline || "");
+
+  const date = formatDate(details.start_date);
+  elements.prDetailsContent.innerHTML = `
+    <div class="pr-details-meta">
+      <span class="meta">${details.id}</span>
+      <span class="meta">${date}</span>
+    </div>
+    <div class="pr-details-hero">
+      <div class="pr-details-title">
+        <a class="activity-link" href="https://www.strava.com/activities/${details.id}" target="_blank" rel="noopener noreferrer">
+          ${details.name || activity.name || "Run"}
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M14 5h5v5" />
+            <path d="M10 14L19 5" />
+            <path d="M19 14v5h-9a2 2 0 0 1-2-2v-9" />
+          </svg>
+        </a>
+      </div>
+    </div>
+    <div class="pr-metrics">
+      <div class="pr-metric">
+        <span class="label">Distance</span>
+        <span class="value">${formatDistance(details.distance)}</span>
+      </div>
+      <div class="pr-metric">
+        <span class="label">Time</span>
+        <span class="value">${formatTime(details.moving_time)}</span>
+      </div>
+      <div class="pr-metric">
+        <span class="label">Pace</span>
+        <span class="value">${formatPace(details.moving_time, details.distance)}</span>
+      </div>
+      <div class="pr-metric">
+        <span class="label">Elevation</span>
+        <span class="value">${elevation}</span>
+      </div>
+      <div class="pr-metric">
+        <span class="label">Weather</span>
+        <span class="value">—</span>
+      </div>
+      <div class="pr-metric">
+        <span class="label">Location</span>
+        <span class="value">—</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderRecentRunsTable(activities) {
+  elements.prTableBody.innerHTML = "";
+
+  if (!activities.length) {
+    elements.prTableBody.innerHTML = "<div class=\"pr-table-empty\">No recent runs found.</div>";
+    elements.prMapContent.textContent = "Select a run to view the map.";
+    elements.prDetailsContent.textContent = "Select a run to view activity details.";
+    return;
+  }
+
+  activities.forEach((activity, index) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "pr-table-row";
+    row.dataset.index = String(index);
+    const date = formatDate(activity.start_date);
+    row.innerHTML = `
+      <span>#${index + 1}</span>
+      <span class="meta">${date}</span>
+      <span>${formatDistance(activity.distance)}</span>
+    `;
+    row.addEventListener("click", () => {
+      document.querySelectorAll(".pr-table-row").forEach((button) => {
+        button.classList.remove("is-active");
+      });
+      row.classList.add("is-active");
+      renderRecentRunSelection(activity).catch((error) => {
+        setStatus(`Error: ${error.message}`);
+      });
+    });
+    elements.prTableBody.appendChild(row);
+  });
+
+  const firstRow = elements.prTableBody.querySelector(".pr-table-row");
+  if (firstRow) {
+    firstRow.classList.add("is-active");
+    renderRecentRunSelection(activities[0]).catch((error) => {
+      setStatus(`Error: ${error.message}`);
+    });
+  }
+}
+
 function renderAllActivities(activities) {
   elements.allRuns.innerHTML = "";
   elements.activityCount.textContent = `${activities.length} activities loaded`;
@@ -694,7 +859,7 @@ function renderAllActivities(activities) {
 
   activities.forEach((activity) => {
     const item = document.createElement("li");
-    const date = new Date(activity.start_date).toLocaleDateString();
+    const date = formatDate(activity.start_date);
     const isPr = state.prActivityIds.has(activity.id);
     const prLabel = isPr ? "<span class=\"badge\">PR</span>" : "";
     item.innerHTML = `
@@ -792,7 +957,7 @@ function decodePolyline(encoded) {
 
 function renderPolylineSvg(encodedPolyline) {
   const points = decodePolyline(encodedPolyline);
-  if (!points.length) return "<div class=\"map-placeholder\">No map data</div>";
+  if (!points.length) return "<div class=\"map-empty\">NO MAP DATA</div>";
 
   let minLat = Infinity;
   let maxLat = -Infinity;
@@ -823,35 +988,66 @@ function renderPolylineSvg(encodedPolyline) {
   `;
 }
 
-function renderPrSelection(pr) {
+function renderMapboxStaticMap(encodedPolyline) {
+  if (!encodedPolyline || !config.mapboxToken) {
+    return "<div class=\"map-empty\">NO MAP DATA</div>";
+  }
+  const stroke = "fc5200";
+  const lineWidth = 3;
+  const lineOpacity = 0.8;
+  const overlay = `path-${lineWidth}+${stroke}-${lineOpacity}(${encodedPolyline})`;
+  const overlayEncoded = encodeURIComponent(overlay);
+  const styleId = "mapbox/light-v11";
+  const size = "600x587";
+  const padding = 64;
+  const url = `https://api.mapbox.com/styles/v1/${styleId}/static/${overlayEncoded}/auto/${size}?padding=${padding}&access_token=${config.mapboxToken}`;
+  return `<img class=\"mapbox-image\" src=\"${url}\" alt=\"Route map\" />`;
+}
+
+async function renderPrSelection(pr) {
   if (!pr) {
     elements.prMapContent.textContent = "Select a record to view the map.";
     elements.prDetailsContent.textContent = "Select a record to view activity details.";
     return;
   }
 
-  const date = pr.startDate ? new Date(pr.startDate).toLocaleDateString() : "—";
-  elements.prMapContent.innerHTML = renderPolylineSvg(pr.summaryPolyline);
+  elements.prMapContent.innerHTML = renderMapboxStaticMap(pr.summaryPolyline);
+  elements.prDetailsContent.textContent = "Loading activity details...";
+
+  const details = await getActivityDetails(pr.activityId);
+  const date = formatDate(details.start_date || pr.startDate);
+  const activityDistance = details.distance || pr.distance;
+  const activityTime = details.moving_time || pr.elapsedTime;
+
   elements.prDetailsContent.innerHTML = `
     <div class="pr-details-meta">
-      <span class="meta">Day —</span>
+      <span class="meta">${details.id}</span>
       <span class="meta">${date}</span>
     </div>
     <div class="pr-details-hero">
-      <div class="pr-details-title">${pr.activityName || pr.effortName || "Run"}</div>
+      <div class="pr-details-title">
+        <a class="activity-link" href="https://www.strava.com/activities/${details.id}" target="_blank" rel="noopener noreferrer">
+          ${details.name || pr.activityName || pr.effortName || "Run"}
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M14 5h5v5" />
+            <path d="M10 14L19 5" />
+            <path d="M19 14v5h-9a2 2 0 0 1-2-2v-9" />
+          </svg>
+        </a>
+      </div>
     </div>
     <div class="pr-metrics">
       <div class="pr-metric">
         <span class="label">Distance</span>
-        <span class="value">${formatDistance(pr.distance)}</span>
+        <span class="value">${formatDistance(activityDistance)}</span>
       </div>
       <div class="pr-metric">
         <span class="label">Time</span>
-        <span class="value">${formatTime(pr.elapsedTime)}</span>
+        <span class="value">${formatTime(activityTime)}</span>
       </div>
       <div class="pr-metric">
-        <span class="label">Pace</span>
-        <span class="value">${formatPace(pr.elapsedTime, pr.distance)}</span>
+        <span class="label">Avg pace</span>
+        <span class="value">${formatPace(activityTime, activityDistance)}</span>
       </div>
       <div class="pr-metric">
         <span class="label">Elevation</span>
@@ -900,7 +1096,7 @@ function renderPRs(prs) {
     row.type = "button";
     row.className = "pr-table-row";
     row.dataset.index = String(index);
-    const effortDate = pr.effortDate ? new Date(pr.effortDate).toLocaleDateString() : "—";
+    const effortDate = formatDate(pr.effortDate);
     const distanceLabel = pr.label || formatDistance(pr.distance);
     row.innerHTML = `
       <span>${distanceLabel}</span>
@@ -912,7 +1108,9 @@ function renderPRs(prs) {
         button.classList.remove("is-active");
       });
       row.classList.add("is-active");
-      renderPrSelection(pr);
+      renderPrSelection(pr).catch((error) => {
+        setStatus(`Error: ${error.message}`);
+      });
     });
     elements.prTableBody.appendChild(row);
   });
@@ -920,7 +1118,9 @@ function renderPRs(prs) {
   const firstRow = elements.prTableBody.querySelector(".pr-table-row");
   if (firstRow) {
     firstRow.classList.add("is-active");
-    renderPrSelection(prs[0]);
+    renderPrSelection(prs[0]).catch((error) => {
+      setStatus(`Error: ${error.message}`);
+    });
   }
 }
 
@@ -1018,6 +1218,7 @@ async function fetchPRsFromRuns(runs) {
     }
 
     const prs = PR_TARGETS.map((target) => prMap.get(target.label)).filter(Boolean);
+    state.detailsMap = detailsMap;
     setCachedDetailsMap(detailsMap);
     setCachedItem(storageKeys.cachedPrs, storageKeys.cachedPrsAt, prs);
     return prs;
@@ -1256,6 +1457,8 @@ async function loadDashboard() {
   const runs = activities.filter((activity) => activity.type === "Run");
   const prs = await fetchPRsFromRuns(runs);
   renderPRs(prs);
+  state.prs = prs;
+  state.recentRuns = runs.slice(0, 10);
   state.prActivityIds = new Set(prs.map((pr) => pr.activityId));
 
   renderRecentRuns(runs.slice(0, 10));
@@ -1267,6 +1470,10 @@ async function loadDashboard() {
   setStatus("Dashboard ready.");
   hideStatusProgress();
   setAuthState(true);
+
+  const activeTab =
+    document.querySelector(".notable-tabs .tab-btn.is-active")?.dataset.tab || "prs";
+  setNotableTab(activeTab);
 }
 
 function startAuthFlow() {
@@ -1333,6 +1540,12 @@ function setupEventListeners() {
   if (elements.clearSession) {
     elements.clearSession.addEventListener("click", clearSession);
   }
+  document.querySelectorAll(".notable-tabs .tab-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      const tab = button.dataset.tab || "prs";
+      setNotableTab(tab);
+    });
+  });
   if (elements.menuToggle && elements.menuPanel) {
     elements.menuToggle.addEventListener("click", () => {
       const isHidden = elements.menuPanel.hidden;

@@ -43,6 +43,7 @@ const env = { ...process.env, ...(await loadEnv()) };
 const PORT = Number(env.PORT || 5173);
 const CLIENT_ID = env.STRAVA_CLIENT_ID || "";
 const CLIENT_SECRET = env.STRAVA_CLIENT_SECRET || "";
+const MAPBOX_PUBLIC_TOKEN = env.MAPBOX_PUBLIC_TOKEN || "";
 
 function json(res, status, payload) {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -60,6 +61,7 @@ async function handleConfig(res) {
   json(res, 200, {
     clientId: CLIENT_ID,
     tokenExchangeUrl: "/oauth/token",
+    mapboxToken: MAPBOX_PUBLIC_TOKEN,
   });
 }
 
