@@ -56,6 +56,7 @@ const state = {
   progressTimer: null,
   prs: [],
   recentRuns: [],
+  longestRuns: [],
   detailsMap: null,
   activeNotableTab: "prs",
 };
@@ -712,23 +713,25 @@ function setNotableTab(tab) {
   });
 
   if (elements.prTableCol1) {
-    elements.prTableCol1.textContent = tab === "recent" ? "Rank" : "Distance";
+    elements.prTableCol1.textContent = tab === "prs" ? "Distance" : "Rank";
   }
   if (elements.prTableCol2) {
     elements.prTableCol2.textContent = "Date";
   }
   if (elements.prTableCol3) {
-    elements.prTableCol3.textContent = tab === "recent" ? "Distance" : "Time";
+    elements.prTableCol3.textContent = tab === "prs" ? "Time" : "Distance";
   }
   if (elements.prMapTitle) {
-    elements.prMapTitle.textContent = tab === "recent" ? "Route map & heart rate" : "Route map";
+    elements.prMapTitle.textContent = tab === "prs" ? "Route map" : "Route map & heart rate";
   }
   if (elements.prDetailsTitle) {
-    elements.prDetailsTitle.textContent = tab === "recent" ? "Activity details" : "Run details";
+    elements.prDetailsTitle.textContent = tab === "prs" ? "Run details" : "Activity details";
   }
 
   if (tab === "recent") {
     renderRecentRunsTable(state.recentRuns);
+  } else if (tab === "longest") {
+    renderRecentRunsTable(state.longestRuns);
   } else {
     renderPRs(state.prs);
   }
@@ -1459,6 +1462,9 @@ async function loadDashboard() {
   renderPRs(prs);
   state.prs = prs;
   state.recentRuns = runs.slice(0, 10);
+  state.longestRuns = [...runs]
+    .sort((a, b) => (b.distance || 0) - (a.distance || 0))
+    .slice(0, 10);
   state.prActivityIds = new Set(prs.map((pr) => pr.activityId));
 
   renderRecentRuns(runs.slice(0, 10));
