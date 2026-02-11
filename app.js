@@ -22,6 +22,11 @@ const elements = {
   clearSession: document.getElementById("clearSession"),
   status: document.getElementById("status"),
   statusCard: document.getElementById("statusCard"),
+  statusCountdown: document.getElementById("statusCountdown"),
+  statusProgress: document.getElementById("statusProgress"),
+  statusProgressTrack: document.getElementById("statusProgressTrack"),
+  statusProgressBar: document.getElementById("statusProgressBar"),
+  statusProgressLabel: document.getElementById("statusProgressLabel"),
   authCard: document.getElementById("authCard"),
   dashboard: document.getElementById("dashboard"),
   menuToggle: document.getElementById("menuToggle"),
@@ -41,6 +46,8 @@ const elements = {
 
 const state = {
   prActivityIds: new Set(),
+  isAuthenticated: false,
+  progressTimer: null,
 };
 
 const STRAVA_API = "https://www.strava.com/api/v3";
@@ -51,8 +58,84 @@ const redirectUri = `${window.location.origin}${window.location.pathname}`;
 function setStatus(message) {
   elements.status.textContent = message;
   if (!elements.statusCard) return;
-  const shouldHide = message === "Dashboard ready." && !elements.dashboard.hidden;
+  const shouldHide =
+    (message === "Dashboard ready." && !elements.dashboard.hidden) || !state.isAuthenticated;
   elements.statusCard.hidden = shouldHide;
+}
+
+function clearProgressTimer() {
+  if (!state.progressTimer) return;
+  clearInterval(state.progressTimer);
+  state.progressTimer = null;
+}
+
+function hideStatusProgress() {
+  clearProgressTimer();
+  if (elements.statusProgress) {
+    elements.statusProgress.hidden = true;
+  }
+}
+
+function formatCountdown(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  const remaining = seconds % 60;
+  return `${minutes}:${String(remaining).padStart(2, "0")}`;
+}
+
+function setStatusProgress({ current, total, label, variant, indeterminate } = {}) {
+  if (!elements.statusProgress || !elements.statusProgressBar || !elements.statusProgressTrack) return;
+  if (variant !== "rate-limit") {
+    clearProgressTimer();
+    if (elements.statusCountdown) {
+      elements.statusCountdown.textContent = "";
+    }
+  }
+  elements.statusProgress.hidden = false;
+  elements.statusProgressTrack.classList.toggle("is-indeterminate", Boolean(indeterminate));
+  elements.statusProgressTrack.classList.toggle("is-rate-limit", variant === "rate-limit");
+
+  if (typeof current === "number" && typeof total === "number" && total > 0) {
+    const clamped = Math.min(current, total);
+    const percent = Math.round((clamped / total) * 100);
+    elements.statusProgressBar.style.width = `${percent}%`;
+  } else if (!indeterminate) {
+    elements.statusProgressBar.style.width = "0%";
+  }
+
+  if (elements.statusProgressLabel) {
+    elements.statusProgressLabel.textContent = label || "";
+  }
+}
+
+function startRateLimitCountdown(seconds) {
+  clearProgressTimer();
+  const totalSeconds = Math.max(1, Math.floor(seconds));
+  let remaining = totalSeconds;
+  setStatusProgress({
+    current: remaining,
+    total: totalSeconds,
+    label: "Rate limits may take up to 15 minutes to reset.",
+    variant: "rate-limit",
+  });
+  if (elements.statusCountdown) {
+    elements.statusCountdown.textContent = formatCountdown(remaining);
+  }
+
+  state.progressTimer = setInterval(() => {
+    remaining = Math.max(0, remaining - 1);
+    setStatusProgress({
+      current: remaining,
+      total: totalSeconds,
+      label: "Rate limits may take up to 15 minutes to reset.",
+      variant: "rate-limit",
+    });
+    if (elements.statusCountdown) {
+      elements.statusCountdown.textContent = formatCountdown(remaining);
+    }
+    if (remaining <= 0) {
+      clearProgressTimer();
+    }
+  }, 1000);
 }
 
 function sleep(ms) {
@@ -60,9 +143,16 @@ function sleep(ms) {
 }
 
 function setAuthState(isAuthenticated) {
+  state.isAuthenticated = isAuthenticated;
   elements.connectStrava.hidden = isAuthenticated;
   if (elements.authCard) {
     elements.authCard.hidden = isAuthenticated;
+  }
+  if (elements.statusCard) {
+    elements.statusCard.hidden = !isAuthenticated;
+  }
+  if (!isAuthenticated) {
+    hideStatusProgress();
   }
   if (elements.menuToggle) {
     elements.menuToggle.hidden = !isAuthenticated;
@@ -212,15 +302,19 @@ async function fetchWithAuth(path, { retryCount = 0 } = {}) {
     } else {
       waitMs = 15 * 60 * 1000;
     }
-    setStatus(`Rate limited. Retrying in ${Math.ceil(waitMs / 1000)}s...`);
-    await sleep(waitMs);
+    const countdownSeconds = Math.min(Math.ceil(waitMs / 1000), 90);
+    setStatus("Rate limited. Waiting to retry...");
+    startRateLimitCountdown(countdownSeconds);
+    await sleep(countdownSeconds * 1000);
     return fetchWithAuth(path, { retryCount: retryCount + 1 });
   }
 
   if (response.status === 429) {
     const waitMs = 15 * 60 * 1000;
-    setStatus("Rate limited. Waiting 15 minutes before retrying...");
-    await sleep(waitMs);
+    const countdownSeconds = Math.min(Math.ceil(waitMs / 1000), 90);
+    setStatus("Rate limited. Waiting to retry...");
+    startRateLimitCountdown(countdownSeconds);
+    await sleep(countdownSeconds * 1000);
     return fetchWithAuth(path, { retryCount: 0 });
   }
 
@@ -568,6 +662,7 @@ function renderRecentRuns(activities) {
       <div>
         <strong>${activity.name}</strong>
         <span class="meta">${date}</span>
+        <a class="strava-link" href="https://www.strava.com/activities/${activity.id}" target="_blank" rel="noopener noreferrer">View on Strava</a>
       </div>
       <div>
         <span>${formatDistance(activity.distance)}</span>
@@ -596,6 +691,7 @@ function renderAllActivities(activities) {
       <div>
         <strong>${activity.name}</strong>
         <span class="meta">${date}</span>
+        <a class="strava-link" href="https://www.strava.com/activities/${activity.id}" target="_blank" rel="noopener noreferrer">View on Strava</a>
       </div>
       <div class="activity-meta">
         ${prLabel}
@@ -846,19 +942,37 @@ async function fetchPRsFromRuns(runs) {
     const runsNeedingDetails = runs.filter((run) => !detailsMap[run.id]);
     if (runsNeedingDetails.length) {
       let fetched = 0;
-      setStatus(`Fetching activity details... ${fetched}/${runsNeedingDetails.length}`);
+      const label = `Fetching activity details... ${fetched}/${runsNeedingDetails.length}`;
+      setStatus(label);
+      setStatusProgress({
+        current: fetched,
+        total: runsNeedingDetails.length,
+        label,
+      });
       await mapWithConcurrency(runsNeedingDetails, DETAILS_CONCURRENCY, async (run) => {
         const details = await fetchWithAuth(`/activities/${run.id}`);
         detailsMap[run.id] = details;
         fetched += 1;
-        setStatus(`Fetching activity details... ${fetched}/${runsNeedingDetails.length}`);
+        const updateLabel = `Fetching activity details... ${fetched}/${runsNeedingDetails.length}`;
+        setStatus(updateLabel);
+        setStatusProgress({
+          current: fetched,
+          total: runsNeedingDetails.length,
+          label: updateLabel,
+        });
         return details;
       });
     }
 
     for (const run of runs) {
       processed += 1;
-      setStatus(`Calculating PRs... ${processed}/${runs.length}`);
+      const label = `Calculating PRs... ${processed}/${runs.length}`;
+      setStatus(label);
+      setStatusProgress({
+        current: processed,
+        total: runs.length,
+        label,
+      });
       const details = detailsMap[run.id];
       const bestEfforts = details.best_efforts || [];
 
@@ -1107,9 +1221,11 @@ function renderHeatmaps(runs) {
 
 async function loadDashboard() {
   setStatus("Loading dashboard from Strava...");
+  setStatusProgress({ label: "Loading athlete data...", indeterminate: true });
 
   const athlete = await fetchWithAuth("/athlete");
   const stats = await fetchWithAuth(`/athletes/${athlete.id}/stats`);
+  setStatusProgress({ label: "Loading activities...", indeterminate: true });
   const activities = await fetchAllActivities();
 
   elements.athleteName.textContent = `${athlete.firstname} ${athlete.lastname}`;
@@ -1131,6 +1247,7 @@ async function loadDashboard() {
 
   elements.dashboard.hidden = false;
   setStatus("Dashboard ready.");
+  hideStatusProgress();
   setAuthState(true);
 }
 
@@ -1184,6 +1301,7 @@ async function handleAuthRedirect() {
     });
 
     storeToken(tokenResponse);
+    setAuthState(true);
     window.history.replaceState({}, document.title, redirectUri);
     await loadDashboard();
   } catch (error) {
@@ -1222,6 +1340,7 @@ async function init() {
   const token = getToken();
   if (token && !tokenExpired(token)) {
     try {
+      setAuthState(true);
       await loadDashboard();
     } catch (error) {
       setStatus(`Error: ${error.message}`);
