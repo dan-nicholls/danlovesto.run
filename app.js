@@ -41,7 +41,6 @@ const elements = {
   totalRuns: document.getElementById("totalRuns"),
   totalDistance: document.getElementById("totalDistance"),
   totalTime: document.getElementById("totalTime"),
-  recentRuns: document.getElementById("recentRuns"),
   prTableBody: document.getElementById("prTableBody"),
   prMapContent: document.getElementById("prMapContent"),
   prDetailsContent: document.getElementById("prDetailsContent"),
@@ -672,39 +671,6 @@ function renderStats(runs) {
     .join("");
 }
 
-function renderRecentRuns(activities) {
-  elements.recentRuns.innerHTML = "";
-
-  if (!activities.length) {
-    elements.recentRuns.innerHTML = "<li>No recent runs found.</li>";
-    return;
-  }
-
-  activities.forEach((activity) => {
-    const item = document.createElement("li");
-    const date = formatDate(activity.start_date);
-    item.innerHTML = `
-      <div>
-        <div class="activity-title">
-          <strong>${activity.name}</strong>
-          <a class="strava-link" href="https://www.strava.com/activities/${activity.id}" target="_blank" rel="noopener noreferrer" aria-label="Open activity on Strava">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M14 5h5v5" />
-              <path d="M10 14L19 5" />
-              <path d="M19 14v5h-9a2 2 0 0 1-2-2v-9" />
-            </svg>
-          </a>
-        </div>
-        <span class="meta">${date}</span>
-      </div>
-      <div>
-        <span>${formatDistance(activity.distance)}</span>
-        <span class="meta">${formatDuration(activity.moving_time)}</span>
-      </div>
-    `;
-    elements.recentRuns.appendChild(item);
-  });
-}
 
 function setNotableTab(tab) {
   state.activeNotableTab = tab;
@@ -1467,7 +1433,6 @@ async function loadDashboard() {
     .slice(0, 10);
   state.prActivityIds = new Set(prs.map((pr) => pr.activityId));
 
-  renderRecentRuns(runs.slice(0, 10));
   renderStats(runs);
   renderHeatmaps(runs);
   renderAllActivities(activities);
