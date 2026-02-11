@@ -250,11 +250,35 @@ button.ghost {
 }
 
 .strava-link {
-  color: #fc5200;
-  font-weight: 600;
-  text-decoration: underline;
-  display: inline-block;
-  margin-top: 6px;
+  color: #9aa0a6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  text-decoration: none;
+  border-radius: 999px;
+}
+
+.strava-link svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.strava-link:hover {
+  background: #f1f2f7;
+  color: #6b7280;
+}
+
+.activity-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .dashboard-grid {
