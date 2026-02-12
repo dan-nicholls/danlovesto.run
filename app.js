@@ -639,7 +639,7 @@ function renderRadarChart(values, labels) {
   const maxValue = Math.max(...values, 1);
   const count = values.length;
   const center = 50;
-  const radius = 38;
+  const radius = 32;
   const levels = 4;
   const angleStep = (Math.PI * 2) / count;
 
@@ -681,7 +681,7 @@ function renderRadarChart(values, labels) {
     })
     .join(" ");
 
-  const labelRadius = radius + 8;
+  const labelRadius = radius + 10;
   const labelNodes = labels
     .map((label, index) => {
       const angle = -Math.PI / 2 + index * angleStep;
