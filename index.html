@@ -34,7 +34,7 @@
 				</p>
 				<div class="actions">
 					<button id="connectStrava" class="strava-connect" type="button">
-						<img src="assets/connect-with-strava.svg" alt="Connect with Strava" height="48" />
+						<img src="assets/connect-with-strava.svg" alt="Connect with Strava" height="48">
 					</button>
 				</div>
 			</section>
@@ -54,67 +54,73 @@
 			</section>
 
 			<section class="card" id="dashboard" hidden>
-				<h2>Your dashboard</h2>
-				<div class="dashboard-grid">
-					<div class="stat">
-						<span class="stat-label">Athlete</span>
-						<span id="athleteName" class="stat-value">—</span>
+				<section class="section summary">
+					<h2>Your dashboard</h2>
+					<div class="dashboard-grid">
+						<div class="stat">
+							<span class="stat-label">Athlete</span>
+							<span id="athleteName" class="stat-value">—</span>
+						</div>
+						<div class="stat">
+							<span class="stat-label">Total runs</span>
+							<span id="totalRuns" class="stat-value">—</span>
+						</div>
+						<div class="stat">
+							<span class="stat-label">Total distance</span>
+							<span id="totalDistance" class="stat-value">—</span>
+						</div>
+						<div class="stat">
+							<span class="stat-label">Total moving time</span>
+							<span id="totalTime" class="stat-value">—</span>
+						</div>
 					</div>
-					<div class="stat">
-						<span class="stat-label">Total runs</span>
-						<span id="totalRuns" class="stat-value">—</span>
-					</div>
-					<div class="stat">
-						<span class="stat-label">Total distance</span>
-						<span id="totalDistance" class="stat-value">—</span>
-					</div>
-					<div class="stat">
-						<span class="stat-label">Total moving time</span>
-						<span id="totalTime" class="stat-value">—</span>
-					</div>
-				</div>
-				<div class="stats">
+				</section>
+				<div class="section stats">
 					<h3>Stats</h3>
 					<div id="statsGrid" class="stats-grid"></div>
 				</div>
-				<div class="recent notable">
-					<div class="notable-header">
+				<div class="section">
+					<div class="section-header">
 						<h3>Notable runs</h3>
 						<p class="note">Fastest times across standard running distances.</p>
 					</div>
-				<div class="notable-tabs">
-					<button class="tab-btn is-active" type="button" data-tab="prs">Personal bests</button>
-					<button class="tab-btn" type="button" data-tab="recent">Recent runs</button>
-					<button class="tab-btn" type="button" data-tab="longest">Longest runs</button>
-				</div>
-				<div class="pr-section">
-					<div class="pr-table">
-						<div class="pr-table-header">
-							<span id="prTableCol1">Distance</span>
-							<span id="prTableCol2">Date</span>
-							<span id="prTableCol3">Time</span>
+					<div class="notable-tabs">
+						<button class="tab-btn is-active" type="button" data-tab="prs">Personal bests</button>
+						<button class="tab-btn" type="button" data-tab="recent">Recent runs</button>
+						<button class="tab-btn" type="button" data-tab="longest">Longest runs</button>
+					</div>
+					<div class="pr-section">
+						<div class="pr-table">
+							<div class="pr-table-header">
+								<span id="prTableCol1">Distance</span>
+								<span id="prTableCol2">Date</span>
+								<span id="prTableCol3">Time</span>
+							</div>
+							<div id="prTableBody" class="pr-table-body"></div>
 						</div>
-						<div id="prTableBody" class="pr-table-body"></div>
-					</div>
-					<div class="pr-map-panel">
-						<div class="pr-panel-title" id="prMapTitle">Route map</div>
-						<div id="prMapContent" class="pr-panel-content">Select a record to view the map.</div>
-					</div>
-					<div class="pr-details-panel">
-						<div class="pr-panel-title" id="prDetailsTitle">Run details</div>
-						<div id="prDetailsContent" class="pr-panel-content">
-							Select a record to view activity details.
+						<div class="pr-map-panel">
+							<div class="pr-panel-title" id="prMapTitle">Route map</div>
+							<div id="prMapContent" class="pr-panel-content">Select a record to view the map.</div>
+						</div>
+						<div class="pr-details-panel">
+							<div class="pr-panel-title" id="prDetailsTitle">Run details</div>
+							<div id="prDetailsContent" class="pr-panel-content">
+								Select a record to view activity details.
 							</div>
 						</div>
 					</div>
 				</div>
-				<div class="recent">
-					<h3>Run heatmap</h3>
-					<p class="note">Total distance per day.</p>
+				<div class="section">
+					<div class="section-header">
+						<h3>Run heatmap</h3>
+						<p class="note">Total distance per day.</p>
+					</div>
 					<div id="heatmaps" class="heatmaps"></div>
 				</div>
-				<div class="recent">
-					<h3>All activities</h3>
+				<div class="section">
+					<div class="section-header">
+						<h3>All activities</h3>
+					</div>
 					<p class="note" id="activityCount">Loading activity list…</p>
 					<ul id="allRuns" class="activity-list activity-list--scroll"></ul>
 				</div>
@@ -123,7 +129,7 @@
 
 		<footer class="footer">
 			<p>Powered by Strava. All rights reserved to Strava and their respective owners.</p>
-			<img class="strava-powered" src="assets/powered-by-strava-stacked.svg" alt="Powered by Strava" />
+			<img class="strava-powered" src="assets/powered-by-strava-stacked.svg" alt="Powered by Strava">
 		</footer>
 
 		<script src="app.js" type="module"></script>

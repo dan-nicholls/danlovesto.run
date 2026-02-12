@@ -186,7 +186,6 @@ button.ghost {
   margin-top: 8px;
 }
 
-
 .status-row {
   display: flex;
   align-items: baseline;
@@ -283,10 +282,14 @@ button.ghost {
 }
 
 .dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  display: flex;
   gap: 16px;
   margin-top: 20px;
+}
+
+.dashboard-grid > * {
+  flex: 1 0 200px;
+  min-width: 200px;
 }
 
 .stats {
@@ -488,7 +491,9 @@ button.ghost {
   stroke-linecap: butt;
   transform: rotate(-90deg);
   transform-origin: 24px 24px;
-  transition: opacity 0.2s ease, stroke-width 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    stroke-width 0.2s ease;
   cursor: pointer;
 }
 
@@ -510,7 +515,6 @@ button.ghost {
   pointer-events: none;
   white-space: nowrap;
 }
-
 
 .stats-legend {
   display: flex;
@@ -559,15 +563,11 @@ button.ghost {
   display: block;
 }
 
-.recent {
-  margin-top: 28px;
+.section {
+  margin-top: 48px;
 }
 
-.notable {
-  margin-top: 28px;
-}
-
-.notable-header {
+.section {
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -575,6 +575,13 @@ button.ghost {
   gap: 6px;
 }
 
+.section h3 {
+  margin-bottom: 6px;
+}
+
+.section h2 {
+  margin-bottom: 6px;
+}
 .notable-tabs {
   margin-top: 14px;
   display: flex;
@@ -737,6 +744,7 @@ button.ghost {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  width: 100%;
 }
 
 .activity-list li {
