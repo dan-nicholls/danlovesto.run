@@ -415,46 +415,86 @@ function formatSeconds(seconds) {
   return `${minutes}m`;
 }
 
-function renderAxisLabels(labels = []) {
-  if (!labels.length) return "";
-  const maxLabels = 7;
-  const step = labels.length > maxLabels ? Math.ceil(labels.length / maxLabels) : 1;
-  const axis = labels
-    .map((label, index) => {
-      if (index % step !== 0) return "<span></span>";
-      return `<span>${label}</span>`;
-    })
-    .join("");
-  return `<div class="stats-chart-axis">${axis}</div>`;
+function formatChartValue(value) {
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(1);
 }
 
-function renderBarChart(values, labels, { showLabels = true } = {}) {
+function getNiceStep(maxValue, ticks) {
+  if (maxValue <= 0) return 1;
+  const rawStep = maxValue / ticks;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const normalized = rawStep / magnitude;
+  let step = 1;
+  if (normalized >= 5) step = 5;
+  else if (normalized >= 2) step = 2;
+  return step * magnitude;
+}
+
+function getNiceMax(maxValue, ticks) {
+  const step = getNiceStep(maxValue, ticks);
+  return Math.ceil(maxValue / step) * step;
+}
+
+function renderBarChart(values, labels, { showLabels = true, yLabel = "", yTicks = 4, height = 260 } = {}) {
   if (!values.length) return "";
   const maxValue = Math.max(...values, 1);
+  const niceMax = getNiceMax(maxValue, yTicks);
   const barCount = values.length;
   const gap = 2;
-  const barWidth = (100 - gap * (barCount - 1)) / barCount;
+  const chartWidth = 290;
+  const chartHeight = height;
+  const leftMargin = 60;
+  const topMargin = 10;
+  const bottomMargin = showLabels ? 30 : 10;
+  const totalWidth = chartWidth + leftMargin + 4;
+  const totalHeight = chartHeight + topMargin + bottomMargin;
+  const barWidth = (chartWidth - gap * (barCount - 1)) / barCount;
+
+  const labelStep = labels.length > 7 ? Math.ceil(labels.length / 7) : 1;
+  const yAxis = Array.from({ length: yTicks + 1 }, (_, index) => {
+    const value = (niceMax / yTicks) * index;
+    const y = topMargin + chartHeight - (chartHeight / yTicks) * index;
+    return `<text class="stats-axis-text" x="${leftMargin - 4}" y="${y.toFixed(2)}" text-anchor="end" dominant-baseline="middle">${formatChartValue(value)}</text>`;
+  }).join("");
+
+  const xAxis = labels
+    .map((label, index) => {
+      if (!showLabels || index % labelStep !== 0) return "";
+      const x = leftMargin + index * (barWidth + gap) + barWidth / 2;
+      const y = topMargin + chartHeight + 16;
+      return `<text class="stats-axis-text" x="${x.toFixed(2)}" y="${y.toFixed(2)}" text-anchor="middle">${label}</text>`;
+    })
+    .join("");
+
   const bars = values
     .map((value, index) => {
-      const height = (value / maxValue) * 100;
-      const x = index * (barWidth + gap);
+      const height = (value / niceMax) * chartHeight;
+      const x = leftMargin + index * (barWidth + gap);
       const label = labels?.[index] ?? "";
-      const title = `${label}: ${value.toFixed(1)}`;
+      const formatted = formatChartValue(value);
+      const title = `${label}: ${formatted}`;
+      const y = Math.max(topMargin + 6, topMargin + chartHeight - height - 2);
       return `
-        <rect class="stats-bar-hit" x="${x}" y="0" width="${barWidth}" height="100">
+        <rect class="stats-bar" x="${x}" y="${topMargin + chartHeight - height}" width="${barWidth}" height="${height}" rx="2" />
+        <text class="stats-bar-value" x="${(x + barWidth / 2).toFixed(2)}" y="${y.toFixed(2)}">${formatted}</text>
+        <rect class="stats-bar-hit" x="${x}" y="${topMargin}" width="${barWidth}" height="${chartHeight}">
           <title>${title}</title>
         </rect>
-        <rect class="stats-bar" x="${x}" y="${100 - height}" width="${barWidth}" height="${height}" rx="2" />
       `;
     })
     .join("");
 
   return `
     <div class="stats-chart-wrap">
-      <svg class="stats-chart" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <svg class="stats-chart" viewBox="0 0 ${totalWidth} ${totalHeight}" aria-hidden="true">
+        <line class="stats-axis-line" x1="${leftMargin}" y1="${topMargin}" x2="${leftMargin}" y2="${topMargin + chartHeight}" />
+        <line class="stats-axis-line" x1="${leftMargin}" y1="${topMargin + chartHeight}" x2="${leftMargin + chartWidth}" y2="${topMargin + chartHeight}" />
+        ${yAxis}
+        ${yLabel ? `<text class="stats-axis-text stats-axis-text--ylabel" x="${(leftMargin - 38).toFixed(2)}" y="${(topMargin + chartHeight / 2).toFixed(2)}" transform="rotate(-90 ${(leftMargin - 38).toFixed(2)} ${(topMargin + chartHeight / 2).toFixed(2)})">${yLabel}</text>` : ""}
         ${bars}
+        ${xAxis}
       </svg>
-      ${showLabels ? renderAxisLabels(labels) : ""}
     </div>
   `;
 }
@@ -917,7 +957,7 @@ function renderStats(runs) {
     {
       title: "Distance per year",
       value: `${years.length} yrs`,
-      chart: renderBarChart(yearValues, yearLabels),
+      chart: renderBarChart(yearValues, yearLabels, { yLabel: "km" }),
     },
     {
       title: "Avg km per day",
@@ -927,7 +967,7 @@ function renderStats(runs) {
     {
       title: "Run distance bins",
       value: `${runs.length} runs`,
-      chart: renderBarChart(distanceBinCounts, distanceBinLabels),
+      chart: renderBarChart(distanceBinCounts, distanceBinLabels, { yLabel: "runs" }),
     },
     {
       title: "Pace distribution",
@@ -945,12 +985,12 @@ function renderStats(runs) {
     {
       title: "Temp vs runs",
       value: tempUnknown ? "Partial" : "All runs",
-      chart: renderBarChart(tempData.values, tempData.labels),
+      chart: renderBarChart(tempData.values, tempData.labels, { yLabel: "runs" }),
     },
     {
       title: "Weather vs runs",
       value: weatherCounts.unknown ? "Partial" : "All runs",
-      chart: renderBarChart(weatherData.values, weatherData.labels),
+      chart: renderBarChart(weatherData.values, weatherData.labels, { yLabel: "runs" }),
     },
     {
       title: "Runs by time of day",
@@ -960,7 +1000,7 @@ function renderStats(runs) {
     {
       title: "Elevation per year",
       value: "km gain",
-      chart: renderBarChart(elevValues, yearLabels),
+      chart: renderBarChart(elevValues, yearLabels, { yLabel: "km" }),
     },
   ];
 

@@ -307,7 +307,7 @@ button.ghost {
   background: #fff;
   border: 1px solid #e6e6f6;
   border-radius: 16px;
-  padding: 20px;
+  padding: 20px 10px;
   display: grid;
   gap: 12px;
   min-height: 220px;
@@ -337,6 +337,7 @@ button.ghost {
 .stats-chart-wrap {
   display: grid;
   gap: 6px;
+  position: relative;
 }
 
 .stats-chart-wrap--radar {
@@ -350,7 +351,7 @@ button.ghost {
 
 .stats-chart {
   width: 100%;
-  height: 120px;
+  height: 300px;
 }
 
 .stats-chart--radar {
@@ -365,8 +366,30 @@ button.ghost {
   fill: #8fb8ff;
 }
 
+.stats-bar-value {
+  font-size: 10px;
+  fill: #5c5c6d;
+  text-anchor: middle;
+}
+
 .stats-bar-hit {
   fill: transparent;
+}
+
+.stats-axis-line {
+  stroke: #e1e4f2;
+  stroke-width: 0.8;
+}
+
+.stats-axis-text {
+  font-size: 11px;
+  fill: #7a7a8f;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.stats-axis-text--ylabel {
+  text-anchor: middle;
 }
 
 .stats-chart-axis {
@@ -788,6 +811,7 @@ button.ghost {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1fr);
   gap: 22px;
   margin-top: 18px;
+  width: 100%;
 }
 
 .pr-table {
