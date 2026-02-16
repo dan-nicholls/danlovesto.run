@@ -415,46 +415,87 @@ function formatSeconds(seconds) {
   return `${minutes}m`;
 }
 
-function renderAxisLabels(labels = []) {
-  if (!labels.length) return "";
-  const maxLabels = 7;
-  const step = labels.length > maxLabels ? Math.ceil(labels.length / maxLabels) : 1;
-  const axis = labels
-    .map((label, index) => {
-      if (index % step !== 0) return "<span></span>";
-      return `<span>${label}</span>`;
-    })
-    .join("");
-  return `<div class="stats-chart-axis">${axis}</div>`;
+function formatChartValue(value) {
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(1);
 }
 
-function renderBarChart(values, labels, { showLabels = true } = {}) {
+function getNiceStep(maxValue, ticks) {
+  if (maxValue <= 0) return 1;
+  const rawStep = maxValue / ticks;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const normalized = rawStep / magnitude;
+  let step = 1;
+  if (normalized >= 5) step = 5;
+  else if (normalized >= 2) step = 2;
+  return step * magnitude;
+}
+
+function getNiceMax(maxValue, ticks) {
+  const step = getNiceStep(maxValue, ticks);
+  return Math.ceil(maxValue / step) * step;
+}
+
+function renderBarChart(values, labels, { showLabels = true, yLabel = "", yTicks = 4, height = 230 } = {}) {
   if (!values.length) return "";
   const maxValue = Math.max(...values, 1);
+  const niceMax = getNiceMax(maxValue, yTicks);
   const barCount = values.length;
   const gap = 2;
-  const barWidth = (100 - gap * (barCount - 1)) / barCount;
+  const totalWidth = 350;
+  const totalHeight = 300;
+  const leftMargin = 60;
+  const rightMargin = 20;
+  const topMargin = 20;
+  const chartHeight = height;
+  const bottomMargin = Math.max(20, totalHeight - topMargin - chartHeight);
+  const chartWidth = totalWidth - leftMargin - rightMargin;
+  const barWidth = (chartWidth - gap * (barCount - 1)) / barCount;
+
+  const labelStep = labels.length > 7 ? Math.ceil(labels.length / 7) : 1;
+  const yAxis = Array.from({ length: yTicks + 1 }, (_, index) => {
+    const value = (niceMax / yTicks) * index;
+    const y = topMargin + chartHeight - (chartHeight / yTicks) * index;
+    return `<text class="stats-axis-text" x="${leftMargin - 6}" y="${y.toFixed(2)}" text-anchor="end" dominant-baseline="middle">${formatChartValue(value)}</text>`;
+  }).join("");
+
+  const xAxis = labels
+    .map((label, index) => {
+      if (!showLabels || index % labelStep !== 0) return "";
+      const x = leftMargin + index * (barWidth + gap) + barWidth / 2;
+      const y = topMargin + chartHeight + 16;
+      return `<text class="stats-axis-text" x="${x.toFixed(2)}" y="${y.toFixed(2)}" text-anchor="middle">${label}</text>`;
+    })
+    .join("");
+
   const bars = values
     .map((value, index) => {
-      const height = (value / maxValue) * 100;
-      const x = index * (barWidth + gap);
+      const height = (value / niceMax) * chartHeight;
+      const x = leftMargin + index * (barWidth + gap);
       const label = labels?.[index] ?? "";
-      const title = `${label}: ${value.toFixed(1)}`;
+      const formatted = formatChartValue(value);
+      const title = `${label}: ${formatted}`;
+      const y = Math.max(topMargin + 6, topMargin + chartHeight - height - 2);
       return `
-        <rect class="stats-bar-hit" x="${x}" y="0" width="${barWidth}" height="100">
+        <rect class="stats-bar" x="${x}" y="${topMargin + chartHeight - height}" width="${barWidth}" height="${height}" rx="2" />
+        <text class="stats-bar-value" x="${(x + barWidth / 2).toFixed(2)}" y="${y.toFixed(2)}">${formatted}</text>
+        <rect class="stats-bar-hit" x="${x}" y="${topMargin}" width="${barWidth}" height="${chartHeight}">
           <title>${title}</title>
         </rect>
-        <rect class="stats-bar" x="${x}" y="${100 - height}" width="${barWidth}" height="${height}" rx="2" />
       `;
     })
     .join("");
 
   return `
     <div class="stats-chart-wrap">
-      <svg class="stats-chart" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <svg class="stats-chart" viewBox="0 0 350 300" aria-hidden="true">
+        <line class="stats-axis-line" x1="${leftMargin}" y1="${topMargin}" x2="${leftMargin}" y2="${topMargin + chartHeight}" />
+        <line class="stats-axis-line" x1="${leftMargin}" y1="${topMargin + chartHeight}" x2="${leftMargin + chartWidth}" y2="${topMargin + chartHeight}" />
+        ${yAxis}
+        ${yLabel ? `<text class="stats-axis-text stats-axis-text--ylabel" x="${(leftMargin - 38).toFixed(2)}" y="${(topMargin + chartHeight / 2).toFixed(2)}" transform="rotate(-90 ${(leftMargin - 38).toFixed(2)} ${(topMargin + chartHeight / 2).toFixed(2)})">${yLabel}</text>` : ""}
         ${bars}
+        ${xAxis}
       </svg>
-      ${showLabels ? renderAxisLabels(labels) : ""}
     </div>
   `;
 }
@@ -464,14 +505,14 @@ function renderLineChart(points, { minLabel, maxLabel } = {}) {
   const maxY = Math.max(...points.map((p) => p.y), 1);
   const path = points
     .map((point, index) => {
-      const x = (index / (points.length - 1)) * 100;
-      const y = 100 - (point.y / maxY) * 100;
+      const x = (index / (points.length - 1)) * 350;
+      const y = 300 - (point.y / maxY) * 300;
       return `${index === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
     })
     .join(" ");
   return `
     <div class="stats-chart-wrap">
-      <svg class="stats-chart" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <svg class="stats-chart" viewBox="0 0 350 300" aria-hidden="true">
         <path class="stats-line" d="${path}" />
       </svg>
       <div class="stats-chart-axis">
@@ -541,6 +582,11 @@ function renderDonutChart(values, labels) {
 
 function renderRadialTimeChart(values) {
   if (!values.length) return "";
+  const labels = Array.from({ length: 24 }, (_, hour) => {
+    const period = hour < 12 ? "am" : "pm";
+    const normalized = hour % 12 || 12;
+    return `${normalized}${period}`;
+  });
   const smoothedValues = values.map((value, index) => {
     const prev = values[(index - 1 + values.length) % values.length] || 0;
     const next = values[(index + 1) % values.length] || 0;
@@ -548,21 +594,21 @@ function renderRadialTimeChart(values) {
   });
   const maxValue = Math.max(...smoothedValues, 1);
   const total = values.reduce((sum, value) => sum + value, 0) || 1;
-  const center = 50;
-  const radius = 34;
+  const center = { x: 175, y: 150 };
+  const radius = 95;
   const levels = 4;
   const angleStep = (Math.PI * 2) / values.length;
 
   const grid = Array.from({ length: levels }, (_, level) => {
     const r = radius * ((level + 1) / levels);
-    return `<circle class=\"stats-radial-grid\" cx=\"${center}\" cy=\"${center}\" r=\"${r.toFixed(2)}\" />`;
+    return `<circle class=\"stats-radial-grid\" cx=\"${center.x}\" cy=\"${center.y}\" r=\"${r.toFixed(2)}\" />`;
   }).join("");
 
   const gridLabels = Array.from({ length: levels }, (_, level) => {
     const r = radius * ((level + 1) / levels);
     const value = (maxValue * (level + 1)) / levels;
     const percent = Math.round((value / total) * 100);
-    return `<text class=\"stats-radial-scale\" x=\"${center}\" y=\"${(center - r - 1).toFixed(2)}\">${percent}%</text>`;
+    return `<text class=\"stats-radial-scale\" x=\"${center.x}\" y=\"${(center.y - r - 6).toFixed(2)}\">${percent}%</text>`;
   }).join("");
 
   const axisLabels = [
@@ -576,12 +622,12 @@ function renderRadialTimeChart(values) {
     { label: "9pm", index: 21 },
   ];
 
-  const labelRadius = radius + 8;
+  const labelRadius = radius + 18;
   const labelNodes = axisLabels
     .map(({ label, index }) => {
       const angle = -Math.PI / 2 + index * angleStep;
-      const x = center + labelRadius * Math.cos(angle);
-      const y = center + labelRadius * Math.sin(angle);
+      const x = center.x + labelRadius * Math.cos(angle);
+      const y = center.y + labelRadius * Math.sin(angle);
       const anchor = Math.abs(Math.cos(angle)) < 0.2 ? "middle" : Math.cos(angle) > 0 ? "start" : "end";
       const dy = Math.sin(angle) > 0.4 ? "0.9em" : Math.sin(angle) < -0.4 ? "-0.2em" : "0.35em";
       return `<text class=\"stats-radial-label\" x=\"${x.toFixed(2)}\" y=\"${y.toFixed(2)}\" text-anchor=\"${anchor}\" dy=\"${dy}\">${label}</text>`;
@@ -592,8 +638,8 @@ function renderRadialTimeChart(values) {
     .map((value, index) => {
       const angle = -Math.PI / 2 + index * angleStep;
       const r = (value / maxValue) * radius;
-      const x = center + r * Math.cos(angle);
-      const y = center + r * Math.sin(angle);
+      const x = center.x + r * Math.cos(angle);
+      const y = center.y + r * Math.sin(angle);
       return { x, y };
     });
 
@@ -601,7 +647,7 @@ function renderRadialTimeChart(values) {
 
   return `
     <div class="stats-chart-wrap stats-chart-wrap--radial">
-      <svg class="stats-chart stats-chart--radial" viewBox="0 0 100 100" aria-hidden="true">
+      <svg class="stats-chart stats-chart--radial" viewBox="0 0 350 300" aria-hidden="true">
         ${grid}
         ${gridLabels}
         <path class="stats-radial-area" d="${areaPath} Z" />
@@ -638,8 +684,8 @@ function renderRadarChart(values, labels) {
   if (!values.length) return "";
   const maxValue = Math.max(...values, 1);
   const count = values.length;
-  const center = 50;
-  const radius = 38;
+  const center = { x: 175, y: 150 };
+  const radius = 95;
   const levels = 4;
   const angleStep = (Math.PI * 2) / count;
 
@@ -648,8 +694,8 @@ function renderRadarChart(values, labels) {
     const points = values
       .map((_, index) => {
         const angle = -Math.PI / 2 + index * angleStep;
-        const x = center + r * Math.cos(angle);
-        const y = center + r * Math.sin(angle);
+        const x = center.x + r * Math.cos(angle);
+        const y = center.y + r * Math.sin(angle);
         return `${x.toFixed(2)},${y.toFixed(2)}`;
       })
       .join(" ");
@@ -659,15 +705,15 @@ function renderRadarChart(values, labels) {
   const scaleLabels = Array.from({ length: levels }, (_, level) => {
     const r = radius * ((level + 1) / levels);
     const value = (maxValue * (level + 1)) / levels;
-    return `<text class=\"stats-radar-scale\" x=\"${center}\" y=\"${(center - r + 2).toFixed(2)}\">${value.toFixed(1)} km</text>`;
+    return `<text class=\"stats-radar-scale\" x=\"${center.x}\" y=\"${(center.y - r + 4).toFixed(2)}\">${value.toFixed(1)} km</text>`;
   }).join("");
 
   const axes = values
     .map((_, index) => {
       const angle = -Math.PI / 2 + index * angleStep;
-      const x = center + radius * Math.cos(angle);
-      const y = center + radius * Math.sin(angle);
-      return `<line class=\"stats-radar-axis\" x1=\"${center}\" y1=\"${center}\" x2=\"${x.toFixed(2)}\" y2=\"${y.toFixed(2)}\" />`;
+      const x = center.x + radius * Math.cos(angle);
+      const y = center.y + radius * Math.sin(angle);
+      return `<line class=\"stats-radar-axis\" x1=\"${center.x}\" y1=\"${center.y}\" x2=\"${x.toFixed(2)}\" y2=\"${y.toFixed(2)}\" />`;
     })
     .join("");
 
@@ -675,18 +721,18 @@ function renderRadarChart(values, labels) {
     .map((value, index) => {
       const angle = -Math.PI / 2 + index * angleStep;
       const r = (value / maxValue) * radius;
-      const x = center + r * Math.cos(angle);
-      const y = center + r * Math.sin(angle);
+      const x = center.x + r * Math.cos(angle);
+      const y = center.y + r * Math.sin(angle);
       return `${x.toFixed(2)},${y.toFixed(2)}`;
     })
     .join(" ");
 
-  const labelRadius = radius + 8;
+  const labelRadius = radius + 20;
   const labelNodes = labels
     .map((label, index) => {
       const angle = -Math.PI / 2 + index * angleStep;
-      const x = center + labelRadius * Math.cos(angle);
-      const y = center + labelRadius * Math.sin(angle);
+      const x = center.x + labelRadius * Math.cos(angle);
+      const y = center.y + labelRadius * Math.sin(angle);
       const anchor = Math.abs(Math.cos(angle)) < 0.2 ? "middle" : Math.cos(angle) > 0 ? "start" : "end";
       const dy = Math.sin(angle) > 0.4 ? "0.9em" : Math.sin(angle) < -0.4 ? "-0.2em" : "0.35em";
       return `<text class=\"stats-radar-label\" x=\"${x.toFixed(2)}\" y=\"${y.toFixed(2)}\" text-anchor=\"${anchor}\" dy=\"${dy}\">${label}</text>`;
@@ -695,7 +741,7 @@ function renderRadarChart(values, labels) {
 
   return `
     <div class="stats-chart-wrap stats-chart-wrap--radar">
-      <svg class="stats-chart stats-chart--radar" viewBox="0 0 100 100" aria-hidden="true" data-values='${JSON.stringify(values)}' data-labels='${JSON.stringify(labels)}'>
+      <svg class="stats-chart stats-chart--radar" viewBox="0 0 350 300" aria-hidden="true" data-values='${JSON.stringify(values)}' data-labels='${JSON.stringify(labels)}'>
         ${grid}
         ${axes}
         ${scaleLabels}
@@ -917,7 +963,7 @@ function renderStats(runs) {
     {
       title: "Distance per year",
       value: `${years.length} yrs`,
-      chart: renderBarChart(yearValues, yearLabels),
+      chart: renderBarChart(yearValues, yearLabels, { yLabel: "km" }),
     },
     {
       title: "Avg km per day",
@@ -927,7 +973,7 @@ function renderStats(runs) {
     {
       title: "Run distance bins",
       value: `${runs.length} runs`,
-      chart: renderBarChart(distanceBinCounts, distanceBinLabels),
+      chart: renderBarChart(distanceBinCounts, distanceBinLabels, { yLabel: "runs" }),
     },
     {
       title: "Pace distribution",
@@ -945,12 +991,12 @@ function renderStats(runs) {
     {
       title: "Temp vs runs",
       value: tempUnknown ? "Partial" : "All runs",
-      chart: renderBarChart(tempData.values, tempData.labels),
+      chart: renderBarChart(tempData.values, tempData.labels, { yLabel: "runs" }),
     },
     {
       title: "Weather vs runs",
       value: weatherCounts.unknown ? "Partial" : "All runs",
-      chart: renderBarChart(weatherData.values, weatherData.labels),
+      chart: renderBarChart(weatherData.values, weatherData.labels, { yLabel: "runs" }),
     },
     {
       title: "Runs by time of day",
@@ -960,7 +1006,7 @@ function renderStats(runs) {
     {
       title: "Elevation per year",
       value: "km gain",
-      chart: renderBarChart(elevValues, yearLabels),
+      chart: renderBarChart(elevValues, yearLabels, { yLabel: "km" }),
     },
   ];
 
@@ -990,15 +1036,18 @@ function setupRadarTooltips() {
     const labels = JSON.parse(svg.getAttribute("data-labels") || "[]");
     if (!values.length) return;
 
-    const center = 50;
-    const radius = 38;
+    const viewBox = svg.getAttribute("viewBox")?.split(" ").map(Number) || [0, 0, 350, 300];
+    const viewWidth = viewBox[2] || 350;
+    const viewHeight = viewBox[3] || 300;
+    const center = { x: viewWidth / 2, y: viewHeight / 2 };
+    const radius = 95;
     const angleStep = (Math.PI * 2) / values.length;
     const points = values.map((value, index) => {
       const angle = -Math.PI / 2 + index * angleStep;
       const r = (value / Math.max(...values, 1)) * radius;
       return {
-        x: center + r * Math.cos(angle),
-        y: center + r * Math.sin(angle),
+        x: center.x + r * Math.cos(angle),
+        y: center.y + r * Math.sin(angle),
         label: labels[index] || "",
         value,
       };
@@ -1006,8 +1055,8 @@ function setupRadarTooltips() {
 
     const handleMove = (event) => {
       const rect = svg.getBoundingClientRect();
-      const x = ((event.clientX - rect.left) / rect.width) * 100;
-      const y = ((event.clientY - rect.top) / rect.height) * 100;
+      const x = ((event.clientX - rect.left) / rect.width) * viewWidth;
+      const y = ((event.clientY - rect.top) / rect.height) * viewHeight;
       let closest = null;
       let bestDistance = Infinity;
       points.forEach((point) => {
@@ -1024,8 +1073,8 @@ function setupRadarTooltips() {
       tooltip.hidden = false;
       tooltip.textContent = `${closest.label}: ${closest.value.toFixed(1)} km`;
       const wrapRect = wrap.getBoundingClientRect();
-      const left = ((closest.x / 100) * wrapRect.width);
-      const top = ((closest.y / 100) * wrapRect.height);
+      const left = (closest.x / viewWidth) * wrapRect.width;
+      const top = (closest.y / viewHeight) * wrapRect.height;
       tooltip.style.left = `${left}px`;
       tooltip.style.top = `${top}px`;
     };
@@ -1070,6 +1119,7 @@ function setupDonutTooltips() {
     });
   });
 }
+
 
 
 function setNotableTab(tab) {
@@ -1639,14 +1689,36 @@ function buildHeatmapData(runs) {
   return totals;
 }
 
-function getHeatColor(distance, maxDistance) {
-  if (!distance || maxDistance === 0) return HEATMAP_COLORS[0];
-  const intensity = distance / maxDistance;
-  if (intensity > 0.8) return HEATMAP_COLORS[5];
-  if (intensity > 0.6) return HEATMAP_COLORS[4];
-  if (intensity > 0.4) return HEATMAP_COLORS[3];
-  if (intensity > 0.2) return HEATMAP_COLORS[2];
-  return HEATMAP_COLORS[1];
+function getQuantile(sortedValues, quantile) {
+  if (!sortedValues.length) return 0;
+  const position = (sortedValues.length - 1) * quantile;
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+  if (lower === upper) return sortedValues[lower];
+  const weight = position - lower;
+  return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
+}
+
+function buildHeatmapThresholds(values) {
+  const nonZero = values.filter((value) => value > 0).sort((a, b) => a - b);
+  if (!nonZero.length) return [];
+  const logValues = nonZero.map((value) => Math.log1p(value));
+  const quantiles = [0.1, 0.3, 0.6, 0.8];
+  const quantileThresholds = quantiles.map((q) => Math.expm1(getQuantile(logValues, q)));
+  const maxValue = nonZero[nonZero.length - 1];
+  const linearThresholds = quantiles.map((q) => q * maxValue);
+  const quantileWeight = 0.50;
+  return quantileThresholds.map((value, index) =>
+    value * quantileWeight + linearThresholds[index] * (1 - quantileWeight),
+  );
+}
+
+function getHeatColor(distance, thresholds) {
+  if (!distance) return HEATMAP_COLORS[0];
+  if (!thresholds.length) return HEATMAP_COLORS[1];
+  const bucket = bucketize(distance, thresholds);
+  const colorIndex = Math.min(bucket + 1, HEATMAP_COLORS.length - 1);
+  return HEATMAP_COLORS[colorIndex];
 }
 
 function renderHeatmaps(runs) {
@@ -1660,7 +1732,7 @@ function renderHeatmaps(runs) {
   const totals = buildHeatmapData(runs);
   const dates = Array.from(totals.keys()).map((key) => new Date(key));
   const years = getYearRange(dates).reverse();
-  const maxDistance = Math.max(...Array.from(totals.values()));
+  const heatmapThresholds = buildHeatmapThresholds(Array.from(totals.values()));
   const today = new Date();
   const todayKey = formatDayKey(new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())));
 
@@ -1738,7 +1810,7 @@ function renderHeatmaps(runs) {
       const dayIndex = (startDay + i) % 7;
       const cell = document.createElement("div");
       cell.className = "heatmap-cell";
-      cell.style.background = getHeatColor(distance, maxDistance);
+      cell.style.background = getHeatColor(distance, heatmapThresholds);
       cell.style.gridColumn = String(weekIndex + 1);
       cell.style.gridRow = String(dayIndex + 1);
       const tooltipDistance = distance ? formatDistance(distance) : "0 km";
