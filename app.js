@@ -1689,14 +1689,36 @@ function buildHeatmapData(runs) {
   return totals;
 }
 
-function getHeatColor(distance, maxDistance) {
-  if (!distance || maxDistance === 0) return HEATMAP_COLORS[0];
-  const intensity = distance / maxDistance;
-  if (intensity > 0.8) return HEATMAP_COLORS[5];
-  if (intensity > 0.6) return HEATMAP_COLORS[4];
-  if (intensity > 0.4) return HEATMAP_COLORS[3];
-  if (intensity > 0.2) return HEATMAP_COLORS[2];
-  return HEATMAP_COLORS[1];
+function getQuantile(sortedValues, quantile) {
+  if (!sortedValues.length) return 0;
+  const position = (sortedValues.length - 1) * quantile;
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+  if (lower === upper) return sortedValues[lower];
+  const weight = position - lower;
+  return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
+}
+
+function buildHeatmapThresholds(values) {
+  const nonZero = values.filter((value) => value > 0).sort((a, b) => a - b);
+  if (!nonZero.length) return [];
+  const logValues = nonZero.map((value) => Math.log1p(value));
+  const quantiles = [0.1, 0.3, 0.6, 0.8];
+  const quantileThresholds = quantiles.map((q) => Math.expm1(getQuantile(logValues, q)));
+  const maxValue = nonZero[nonZero.length - 1];
+  const linearThresholds = quantiles.map((q) => q * maxValue);
+  const quantileWeight = 0.50;
+  return quantileThresholds.map((value, index) =>
+    value * quantileWeight + linearThresholds[index] * (1 - quantileWeight),
+  );
+}
+
+function getHeatColor(distance, thresholds) {
+  if (!distance) return HEATMAP_COLORS[0];
+  if (!thresholds.length) return HEATMAP_COLORS[1];
+  const bucket = bucketize(distance, thresholds);
+  const colorIndex = Math.min(bucket + 1, HEATMAP_COLORS.length - 1);
+  return HEATMAP_COLORS[colorIndex];
 }
 
 function renderHeatmaps(runs) {
@@ -1710,7 +1732,7 @@ function renderHeatmaps(runs) {
   const totals = buildHeatmapData(runs);
   const dates = Array.from(totals.keys()).map((key) => new Date(key));
   const years = getYearRange(dates).reverse();
-  const maxDistance = Math.max(...Array.from(totals.values()));
+  const heatmapThresholds = buildHeatmapThresholds(Array.from(totals.values()));
   const today = new Date();
   const todayKey = formatDayKey(new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())));
 
@@ -1788,7 +1810,7 @@ function renderHeatmaps(runs) {
       const dayIndex = (startDay + i) % 7;
       const cell = document.createElement("div");
       cell.className = "heatmap-cell";
-      cell.style.background = getHeatColor(distance, maxDistance);
+      cell.style.background = getHeatColor(distance, heatmapThresholds);
       cell.style.gridColumn = String(weekIndex + 1);
       cell.style.gridRow = String(dayIndex + 1);
       const tooltipDistance = distance ? formatDistance(distance) : "0 km";
