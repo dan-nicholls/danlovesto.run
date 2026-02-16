@@ -355,11 +355,11 @@ button.ghost {
 }
 
 .stats-chart--radar {
-  height: 180px;
+  height: 300px;
 }
 
 .stats-chart--radial {
-  height: 200px;
+  height: 300px;
 }
 
 .stats-bar {
@@ -432,13 +432,13 @@ button.ghost {
 }
 
 .stats-radar-scale {
-  font-size: 6px;
+  font-size: 10px;
   fill: #9aa0b0;
   text-anchor: middle;
 }
 
 .stats-radar-label {
-  font-size: 6px;
+  font-size: 11px;
   fill: #7a7a8f;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -457,14 +457,14 @@ button.ghost {
 }
 
 .stats-radial-label {
-  font-size: 6px;
+  font-size: 11px;
   fill: #7a7a8f;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .stats-radial-scale {
-  font-size: 6px;
+  font-size: 10px;
   fill: #9aa0b0;
   text-anchor: middle;
 }
