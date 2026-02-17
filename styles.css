@@ -281,6 +281,10 @@ button.ghost {
   gap: 8px;
 }
 
+.activity-title .meta {
+  text-align: left;
+}
+
 .dashboard-grid {
   display: flex;
   gap: 16px;
